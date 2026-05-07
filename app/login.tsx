@@ -1,8 +1,11 @@
 "use client";
 
+// 로그인 화면과 회원가입 모달 UI를 담당하는 클라이언트 컴포넌트입니다.
 import Link from "next/link";
 import { useState } from "react";
 
+// 로그인 페이지와 회원가입 모달에서 쓰는 모든 문구를 모아둡니다.
+// 폼 구조와 문구를 분리해두면 화면 문구 수정이 훨씬 단순해집니다.
 const text = {
   title: "캠퍼스 게시판 로그인",
   subtitle:
@@ -29,11 +32,13 @@ const text = {
 };
 
 export default function Login() {
+  // 회원가입 버튼을 눌렀을 때 모달을 열고, 닫기 버튼을 누르면 다시 숨깁니다.
   const [isSignupOpen, setIsSignupOpen] = useState(false);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f5f5f5] px-4 py-10 text-[#222222]">
       <section className="w-full max-w-[420px]">
+        {/* 로그인 카드 위쪽의 로고와 안내 문구 영역입니다. */}
         <div className="mb-7 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-[#c62917] text-2xl font-black text-white">
             L
@@ -42,8 +47,10 @@ export default function Login() {
           <p className="mt-2 text-sm text-[#777777]">{text.subtitle}</p>
         </div>
 
+        {/* 실제 서버 로그인 처리는 아직 연결되어 있지 않고, 현재는 입력 폼 UI만 구성되어 있습니다. */}
         <form className="rounded-md border border-[#dedede] bg-white p-5 shadow-sm">
           <div className="space-y-4">
+            {/* 이메일 입력칸입니다. type=email을 사용해서 브라우저 기본 이메일 검사를 활용합니다. */}
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[#333333]">
                 {text.email}
@@ -56,6 +63,7 @@ export default function Login() {
               />
             </label>
 
+            {/* 비밀번호 입력칸입니다. type=password라 입력값이 화면에 노출되지 않습니다. */}
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-[#333333]">
                 {text.password}
@@ -69,6 +77,7 @@ export default function Login() {
             </label>
           </div>
 
+          {/* 로그인 제출 버튼입니다. 현재는 action/onSubmit이 없어 실제 인증 요청은 보내지 않습니다. */}
           <button
             className="mt-6 h-12 w-full rounded-md bg-[#c62917] text-sm font-bold text-white transition hover:bg-[#ae2112]"
             type="submit"
@@ -76,6 +85,7 @@ export default function Login() {
             {text.submit}
           </button>
 
+          {/* 회원가입 버튼을 누르면 아래쪽 조건부 렌더링 영역에서 모달이 나타납니다. */}
           <div className="mt-5 border-t border-[#eeeeee] pt-5 text-center text-sm text-[#666666]">
             {text.noAccount}{" "}
             <button
@@ -88,6 +98,7 @@ export default function Login() {
           </div>
         </form>
 
+        {/* 로그인하지 않고 다시 메인 게시판으로 돌아가는 링크입니다. */}
         <Link
           className="mt-5 block text-center text-sm font-semibold text-[#777777] hover:text-[#c62917]"
           href="/"
@@ -96,6 +107,7 @@ export default function Login() {
         </Link>
       </section>
 
+      {/* isSignupOpen이 true일 때만 회원가입 모달을 화면 위에 띄웁니다. */}
       {isSignupOpen ? (
         <div
           aria-modal="true"
@@ -103,6 +115,7 @@ export default function Login() {
           role="dialog"
         >
           <section className="w-full max-w-[460px] rounded-md border border-[#dedede] bg-white p-5 shadow-xl">
+            {/* 모달 상단에는 제목/설명과 닫기 버튼을 배치합니다. */}
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold">{text.modalTitle}</h2>
@@ -120,7 +133,9 @@ export default function Login() {
               </button>
             </div>
 
+            {/* 회원가입에 필요한 기본 입력값을 받는 폼입니다. 아직 제출 로직은 연결되어 있지 않습니다. */}
             <form className="mt-5 space-y-4">
+              {/* 사용자가 게시판에서 보일 닉네임을 입력합니다. */}
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold">
                   {text.name}
@@ -133,6 +148,7 @@ export default function Login() {
                 />
               </label>
 
+              {/* 학교 이메일을 입력하는 칸입니다. */}
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold">
                   {text.email}
@@ -145,6 +161,7 @@ export default function Login() {
                 />
               </label>
 
+              {/* 학과 정보를 입력하는 칸입니다. */}
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold">
                   {text.major}
@@ -157,6 +174,7 @@ export default function Login() {
                 />
               </label>
 
+              {/* 비밀번호와 비밀번호 확인은 작은 화면에서는 세로, 넓은 화면에서는 2열로 보입니다. */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-2 block text-sm font-semibold">
@@ -183,6 +201,7 @@ export default function Login() {
                 </label>
               </div>
 
+              {/* 계정 만들기 버튼입니다. 실제 가입 API가 붙으면 이 폼의 submit에서 처리하면 됩니다. */}
               <button
                 className="h-12 w-full rounded-md bg-[#c62917] text-sm font-bold text-white transition hover:bg-[#ae2112]"
                 type="submit"

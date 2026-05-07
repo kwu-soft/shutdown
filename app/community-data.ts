@@ -1,5 +1,8 @@
+// 게시판 목록, 게시글 더미 데이터, 추천 랭킹용 데이터를 모아둔 파일입니다.
+// 지금은 서버나 DB 대신 이 파일의 배열을 데이터 소스로 사용합니다.
 export type BoardKey = "home" | "free" | "market" | "examAuction" | "reviews";
 
+// 모든 게시글이 공통으로 가져야 하는 필드와 게시판 종류별 선택 필드를 정의합니다.
 export type CommunityPost = {
   id: number;
   board: string;
@@ -19,6 +22,7 @@ export type CommunityPost = {
   professor?: string;
 };
 
+// 왼쪽 게시판 메뉴와 모바일 게시판 탭에서 공통으로 사용하는 게시판 링크 목록입니다.
 export const boards = [
   { label: "자유게시판", href: "/free" },
   { label: "장터게시판", href: "/market" },
@@ -26,6 +30,7 @@ export const boards = [
   { label: "강의평게시판", href: "/reviews" },
 ];
 
+// 자유게시판 글은 가격, 경매, 강의평 정보 없이 일반 커뮤니티 글 정보만 갖습니다.
 export const freePosts: CommunityPost[] = [
   {
     id: 1,
@@ -68,6 +73,7 @@ export const freePosts: CommunityPost[] = [
   },
 ];
 
+// 장터게시판 글은 price와 status를 추가로 사용해서 판매 정보를 보여줍니다.
 export const marketPosts: CommunityPost[] = [
   {
     id: 4,
@@ -116,6 +122,7 @@ export const marketPosts: CommunityPost[] = [
   },
 ];
 
+// 족보경매장 글은 currentBid, bids, endsIn을 사용해서 경매 상태를 보여줍니다.
 export const examAuctionPosts: CommunityPost[] = [
   {
     id: 10,
@@ -167,6 +174,7 @@ export const examAuctionPosts: CommunityPost[] = [
   },
 ];
 
+// 강의평게시판 글은 rating과 professor를 사용해서 강의평 정보를 보여줍니다.
 export const reviewPosts: CommunityPost[] = [
   {
     id: 7,
@@ -215,6 +223,7 @@ export const reviewPosts: CommunityPost[] = [
   },
 ];
 
+// 게시글 상세 페이지와 추천 랭킹은 모든 게시판 글을 한 번에 검색해야 하므로 하나로 합칩니다.
 export const allPosts = [
   ...freePosts,
   ...marketPosts,
@@ -222,6 +231,7 @@ export const allPosts = [
   ...reviewPosts,
 ];
 
+// 오른쪽 사이드바의 많이 본 글 영역에 보여줄 간단한 제목 목록입니다.
 export const trending = [
   "시험기간 카페 자리 많은 곳",
   "복수전공 신청 후기",

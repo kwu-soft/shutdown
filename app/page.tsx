@@ -8,6 +8,8 @@ import {
   type CommunityPost,
 } from "./community-data";
 
+// 메인 화면에서 게시판별 최신 글과 추천 랭킹을 한눈에 보여줍니다.
+// 화면에 직접 노출되는 문구를 한곳에 모아두면 나중에 문구를 바꿀 때 JSX를 뒤지지 않아도 됩니다.
 const text = {
   siteTitle: "캠퍼스 게시판",
   siteSubtitle:
@@ -22,6 +24,8 @@ const text = {
   reviews: "강의평게시판",
 };
 
+// 메인 화면의 각 게시판 미리보기 카드가 사용할 제목, 이동 경로, 게시글 목록입니다.
+// 같은 카드 컴포넌트를 네 번 재사용하기 위해 데이터 배열로 묶어둡니다.
 const boardSections = [
   {
     title: text.free,
@@ -45,6 +49,8 @@ const boardSections = [
   },
 ];
 
+// 전체 게시글 중 작성자 추천수가 높은 글 3개를 골라 오른쪽 랭킹 영역에 보여줍니다.
+// 원본 allPosts 배열을 직접 정렬하면 다른 화면에도 영향이 갈 수 있어 복사본([...allPosts])을 사용합니다.
 const ranking = [...allPosts]
   .sort(
     (first, second) =>
@@ -62,6 +68,7 @@ function BoardPreviewCard({
   title: string;
 }) {
   return (
+    // 한 게시판의 최신 글 일부를 카드 형태로 보여주는 재사용 컴포넌트입니다.
     <section className="rounded-none border border-[#dedede] bg-white">
       <Link
         className="block border-b border-[#eeeeee] px-4 py-3 text-lg font-black text-[#ff1f10] hover:bg-[#fff8f7]"
@@ -70,6 +77,7 @@ function BoardPreviewCard({
         {title}
       </Link>
       <ol>
+        {/* 메인 화면은 요약용이므로 각 게시판의 첫 4개 글만 보여줍니다. */}
         {posts.slice(0, 4).map((post) => (
           <li className="border-b border-[#eeeeee] last:border-b-0" key={post.id}>
             <Link
@@ -93,6 +101,7 @@ function BoardPreviewCard({
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#f5f5f5] text-[#222222]">
+      {/* 상단 헤더: 로고/서비스명은 홈으로, 로그인 버튼은 로그인 페이지로 이동합니다. */}
       <header className="border-b border-[#e2e2e2] bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link className="flex items-center gap-3" href="/">
@@ -115,8 +124,10 @@ export default function Home() {
         </div>
       </header>
 
+      {/* 데스크톱에서는 왼쪽 메뉴, 가운데 게시판 카드, 오른쪽 랭킹의 3단 구조로 배치합니다. */}
       <div className="mx-auto grid max-w-6xl gap-3 px-4 py-4 lg:grid-cols-[180px_1fr_260px]">
         <aside className="hidden lg:block">
+          {/* 왼쪽 게시판 목록: 사용자가 원하는 게시판 페이지로 바로 이동하는 내비게이션입니다. */}
           <nav className="border border-[#dedede] bg-white">
             <div className="border-b border-[#eeeeee] px-4 py-3 text-sm font-black text-[#c62917]">
               {text.boardList}
@@ -133,6 +144,7 @@ export default function Home() {
           </nav>
         </aside>
 
+        {/* 가운데 영역: boardSections 데이터를 순회하면서 게시판별 미리보기 카드를 만듭니다. */}
         <section className="grid gap-2 md:grid-cols-2">
           {boardSections.map((section) => (
             <BoardPreviewCard
@@ -145,6 +157,7 @@ export default function Home() {
         </section>
 
         <aside>
+          {/* 오른쪽 영역: 추천수가 높은 작성자를 랭킹처럼 보여주는 보조 정보입니다. */}
           <section className="border border-[#dedede] bg-white">
             <div className="border-b border-[#eeeeee] px-4 py-3 text-lg font-black text-[#ff1f10]">
               {text.ranking}

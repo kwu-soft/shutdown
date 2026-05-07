@@ -1,17 +1,23 @@
 @import "tailwindcss";
 
+/* 앱 전체에서 공유하는 Tailwind 설정과 기본 색상, 폰트 스타일입니다. */
 :root {
+  /* 모든 페이지의 기본 배경색입니다. */
   --background: #f5f5f5;
+  /* 모든 페이지의 기본 글자색입니다. */
   --foreground: #222222;
 }
 
+/* Tailwind에서 var(--background), var(--foreground)를 색상 토큰처럼 사용할 수 있게 연결합니다. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  /* 프로젝트 전체 기본 폰트 후보입니다. */
   --font-sans: Arial, Helvetica, sans-serif;
   --font-mono: "Courier New", Courier, monospace;
 }
 
+/* 사용자가 다크 모드를 사용해도 이 게시판은 같은 밝은 색상 체계를 유지합니다. */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #f5f5f5;
@@ -19,10 +25,12 @@
   }
 }
 
+/* padding과 border가 요소 크기 계산에 포함되도록 해 레이아웃 예측을 쉽게 만듭니다. */
 * {
   box-sizing: border-box;
 }
 
+/* html과 body 모두 같은 배경을 써서 화면 끝에 다른 색이 비치지 않게 합니다. */
 html {
   background: var(--background);
 }
@@ -34,11 +42,13 @@ body {
   margin: 0;
 }
 
+/* 링크의 파란색/밑줄 브라우저 기본 스타일을 제거하고 주변 텍스트 색을 따르게 합니다. */
 a {
   color: inherit;
   text-decoration: none;
 }
 
+/* 폼 요소가 브라우저 기본 폰트 대신 body의 폰트를 그대로 따르게 합니다. */
 button,
 input {
   font: inherit;

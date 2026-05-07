@@ -1,5 +1,6 @@
 "use client";
 
+// 각 게시판 페이지에서 공통으로 사용하는 목록, 검색, 추천 랭킹 UI입니다.
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
@@ -11,13 +12,20 @@ import {
 } from "./community-data";
 
 type CommunityBoardProps = {
+  // 현재 열려 있는 게시판을 표시하기 위한 키입니다.
   activeBoard: BoardKey;
+  // 게시판 본문 상단에 표시되는 제목입니다.
   title: string;
+  // 제목 오른쪽에 붙는 짧은 상태 문구입니다. 예: 최신순, 경매중
   eyebrow: string;
+  // 이 화면에 실제로 나열할 게시글 목록입니다.
   posts: CommunityPost[];
+  // 게시판 설명은 없는 페이지도 있을 수 있어서 선택값으로 둡니다.
   description?: string;
 };
 
+// 공용 게시판 컴포넌트에서 쓰는 화면 문구입니다.
+// 여러 곳에 문자열을 직접 쓰지 않고 ui 객체에서 꺼내 쓰면 수정 지점이 줄어듭니다.
 const ui = {
   siteTitle: "캠퍼스 게시판",
   siteSubtitle:
@@ -48,12 +56,16 @@ export default function CommunityBoard({
   posts,
   description,
 }: CommunityBoardProps) {
+  // 추천 버튼을 누른 결과는 서버에 저장하지 않고 현재 화면 상태로만 관리합니다.
+  // 초기값은 모든 게시글의 authorRecommendations 값을 post.id 기준으로 바꾼 객체입니다.
   const [recommendations, setRecommendations] = useState(() =>
     Object.fromEntries(
       allPosts.map((post) => [post.id, post.authorRecommendations]),
     ),
   );
 
+  // 추천 수가 바뀔 때마다 오른쪽 추천 랭킹을 다시 계산합니다.
+  // useMemo는 recommendations가 바뀌지 않으면 이전 계산 결과를 재사용합니다.
   const ranking = useMemo(() => {
     return [...allPosts]
       .map((post) => ({
@@ -65,6 +77,8 @@ export default function CommunityBoard({
       .slice(0, 3);
   }, [recommendations]);
 
+  // 특정 게시글의 추천 버튼을 누르면 해당 게시글 추천 수만 1 올립니다.
+  // 기존 상태를 펼친 뒤 선택한 postId만 덮어써서 다른 게시글 수치는 유지합니다.
   const handleRecommend = (postId: number) => {
     setRecommendations((current) => ({
       ...current,
@@ -74,6 +88,7 @@ export default function CommunityBoard({
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] text-[#222222]">
+      {/* 공통 헤더: 어떤 게시판에 있어도 홈과 로그인으로 이동할 수 있게 둡니다. */}
       <header className="sticky top-0 z-10 border-b border-[#e2e2e2] bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link className="flex items-center gap-3" href="/">
@@ -88,7 +103,7 @@ export default function CommunityBoard({
             </div>
           </Link>
           <Link
-            className="rounded-md bg-[#c62917] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#ae2112]"
+            className="rounded-md bg-[#c62917] px-4 py-2 text-sm font-semibold !text-white shadow-sm transition hover:bg-[#ae2112]"
             href="/login"
           >
             {ui.login}
@@ -96,10 +111,13 @@ export default function CommunityBoard({
         </div>
       </header>
 
+      {/* 게시판 화면은 왼쪽 메뉴, 가운데 글 목록, 오른쪽 보조 정보의 3단 레이아웃입니다. */}
       <div className="mx-auto grid max-w-6xl gap-5 px-4 py-5 lg:grid-cols-[180px_1fr_280px]">
         <aside className="hidden lg:block">
+          {/* 데스크톱용 게시판 목록입니다. 현재 게시판은 붉은색 배경으로 강조합니다. */}
           <nav className="overflow-hidden rounded-md border border-[#dedede] bg-white">
             {boards.map((board) => {
+              // activeBoard 값과 링크 주소를 비교해서 현재 선택된 게시판인지 판단합니다.
               const isActive =
                 (activeBoard === "free" && board.href === "/free") ||
                 (activeBoard === "market" && board.href === "/market") ||
@@ -125,8 +143,10 @@ export default function CommunityBoard({
         </aside>
 
         <section className="space-y-4">
+          {/* 검색창과 글쓰기 버튼이 들어 있는 상단 도구 영역입니다. */}
           <div className="rounded-md border border-[#dedede] bg-white p-3">
             <div className="flex items-center gap-2">
+              {/* 실제 검색 기능은 아직 연결되어 있지 않고, 현재는 입력 UI만 준비되어 있습니다. */}
               <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-[#dedede] bg-[#fafafa] px-3 py-2">
                 <span className="text-sm text-[#999999]">{ui.search}</span>
                 <input
@@ -136,12 +156,13 @@ export default function CommunityBoard({
                 />
               </div>
               <Link
-                className="shrink-0 rounded-md bg-[#c62917] px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-[#ae2112]"
+                className="shrink-0 rounded-md bg-[#c62917] px-4 py-2 text-sm font-bold !text-white shadow-sm transition hover:bg-[#ae2112]"
                 href="/write"
               >
                 {ui.write}
               </Link>
             </div>
+            {/* 모바일에서는 왼쪽 사이드바가 숨겨지므로 가로 스크롤 게시판 메뉴를 대신 보여줍니다. */}
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
               {boards.map((board) => (
                 <Link
@@ -155,6 +176,7 @@ export default function CommunityBoard({
             </div>
           </div>
 
+          {/* 실제 게시글 목록입니다. 게시판 페이지에서 넘겨준 posts 배열을 순서대로 렌더링합니다. */}
           <article className="rounded-md border border-[#dedede] bg-white">
             <div className="border-b border-[#eeeeee] px-4 py-3">
               <div className="flex items-center justify-between gap-3">
@@ -174,6 +196,7 @@ export default function CommunityBoard({
                 className="border-b border-[#eeeeee] px-4 py-4 last:border-b-0 hover:bg-[#fafafa]"
                 key={post.id}
               >
+                {/* 게시판명, 평점, 작성 시각처럼 글을 열기 전에 빠르게 확인할 메타 정보입니다. */}
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="rounded-sm bg-[#f1f1f1] px-2 py-1 text-xs font-semibold text-[#777777]">
                     {post.board}
@@ -185,6 +208,7 @@ export default function CommunityBoard({
                   ) : null}
                   <span className="text-xs text-[#999999]">{post.time}</span>
                 </div>
+                {/* 글 제목과 요약을 누르면 게시글 상세 페이지로 이동합니다. */}
                 <Link
                   aria-label={`${post.title} ${ui.openPost}`}
                   className="flex items-start justify-between gap-4"
@@ -203,6 +227,7 @@ export default function CommunityBoard({
                       {post.preview}
                     </p>
                   </div>
+                  {/* 장터 글에는 가격과 거래 상태가 있으므로 오른쪽에 별도로 보여줍니다. */}
                   {post.price ? (
                     <div className="shrink-0 text-right">
                       <p className="text-xs text-[#999999]">{ui.price}</p>
@@ -216,6 +241,7 @@ export default function CommunityBoard({
                       ) : null}
                     </div>
                   ) : null}
+                  {/* 경매 글에는 현재가와 남은 시간이 있으므로 가격 대신 입찰 정보를 보여줍니다. */}
                   {post.currentBid ? (
                     <div className="shrink-0 text-right">
                       <p className="text-xs text-[#999999]">{ui.currentBid}</p>
@@ -228,6 +254,7 @@ export default function CommunityBoard({
                     </div>
                   ) : null}
                 </Link>
+                {/* 하단 액션 영역: 좋아요/댓글 수와 추천 버튼을 함께 배치합니다. */}
                 <div className="mt-3 flex flex-wrap items-center gap-4 text-xs font-semibold text-[#888888]">
                   <span className="text-[#c62917]">
                     {ui.likes} {post.likes}
@@ -246,7 +273,7 @@ export default function CommunityBoard({
                     onClick={() => handleRecommend(post.id)}
                     type="button"
                   >
-                    {post.author} {ui.recommend}{" "}
+                    {ui.recommend}{" "}
                     {recommendations[post.id] ?? post.authorRecommendations}
                   </button>
                 </div>
@@ -256,6 +283,7 @@ export default function CommunityBoard({
         </section>
 
         <aside className="space-y-4">
+          {/* 현재 추천 상태를 기준으로 추천수가 높은 작성자 3명을 보여줍니다. */}
           <section className="rounded-md border border-[#dedede] bg-white">
             <div className="border-b border-[#eeeeee] px-4 py-3">
               <h2 className="text-sm font-bold">{ui.ranking}</h2>
@@ -280,6 +308,7 @@ export default function CommunityBoard({
             </ol>
           </section>
 
+          {/* 많이 본 글 목록은 trending 배열의 문자열을 그대로 보여주는 보조 영역입니다. */}
           <section className="rounded-md border border-[#dedede] bg-white">
             <div className="border-b border-[#eeeeee] px-4 py-3">
               <h2 className="text-sm font-bold">{ui.viewed}</h2>

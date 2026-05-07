@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BidPanel from "../../bid-panel";
 import { allPosts } from "../../community-data";
+import PostCounterButton from "../../post-counter-button";
+import ReportAuthorButton from "../../report-author-button";
 
 // 게시글 id에 맞는 상세 내용을 보여주는 동적 상세 페이지입니다.
 // app/posts/[id]/page.tsx 파일명에서 [id]가 URL의 게시글 id 역할을 합니다.
@@ -28,6 +30,7 @@ const text = {
   bid: "입찰하기",
   rating: "평점",
   professor: "교수",
+  lockedAuction: "낙찰된 사용자만 게시물 내용을 확인할 수 있습니다.",
 };
 
 // 정적 생성 대상이 될 게시글 id 목록을 Next.js에 알려줍니다.
@@ -49,6 +52,8 @@ export default async function PostPage({ params }: PostPageProps) {
     notFound();
   }
 
+  const canViewContent = !post.currentBid || post.isAwarded;
+
   return (
     <main className="min-h-screen bg-[#f5f5f5] px-4 py-8 text-[#222222]">
       {/* 상세 본문 카드입니다. 게시글의 메타 정보, 제목, 내용, 거래/경매 정보를 한곳에 모읍니다. */}
@@ -68,13 +73,15 @@ export default async function PostPage({ params }: PostPageProps) {
           </div>
           {/* 게시글 제목과 작성자/추천수 정보를 헤더 영역에서 강조합니다. */}
           <h1 className="text-2xl font-bold leading-8">{post.title}</h1>
-          <div className="mt-3 flex flex-wrap gap-4 text-sm font-semibold text-[#777777]">
-            <span>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-[#777777]">
+            <span className="inline-flex h-8 items-center">
               {text.author} {post.author}
             </span>
-            <span>
-              {text.recommend} {post.authorRecommendations}
-            </span>
+            <PostCounterButton
+              initialCount={post.authorRecommendations}
+              label={text.recommend}
+            />
+            <ReportAuthorButton author={post.author} />
           </div>
         </header>
 
@@ -86,10 +93,21 @@ export default async function PostPage({ params }: PostPageProps) {
             </p>
           ) : null}
 
-          {/* 현재 더미 데이터에서는 preview를 상세 본문처럼 사용합니다. */}
-          <p className="whitespace-pre-line text-base leading-8 text-[#333333]">
-            {post.preview}
-          </p>
+          {/* 족보경매장 글은 낙찰된 경우에만 본문 내용을 보여줍니다. */}
+          {canViewContent ? (
+            <p className="whitespace-pre-line text-base leading-8 text-[#333333]">
+              {post.preview}
+            </p>
+          ) : (
+            <div className="rounded-md border border-[#f0d5d0] bg-[#fff5f3] p-4">
+              <p className="text-sm font-bold text-[#c62917]">
+                {text.lockedAuction}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#777777]">
+                경매가 끝나고 낙찰 처리된 뒤 본문 내용을 볼 수 있습니다.
+              </p>
+            </div>
+          )}
 
           {/* 장터게시판 글일 때만 가격, 상태, 구매 버튼 영역을 보여줍니다. */}
           {post.price ? (
@@ -126,35 +144,34 @@ export default async function PostPage({ params }: PostPageProps) {
             />
           ) : null}
 
-          {/* 본문 하단에는 좋아요와 댓글 수를 간단한 통계처럼 표시합니다. */}
-          <div className="flex flex-wrap gap-4 border-t border-[#eeeeee] pt-4 text-sm font-bold text-[#777777]">
-            <span className="text-[#c62917]">
-              {text.likes} {post.likes}
-            </span>
-            <span>
+          {/* 본문 하단에는 좋아요/댓글 수와 목록 이동 버튼을 같은 줄에 배치합니다. */}
+          <div className="flex flex-wrap items-center gap-2 border-t border-[#eeeeee] pt-4 text-sm font-bold text-[#777777]">
+            <PostCounterButton
+              initialCount={post.likes}
+              label={text.likes}
+              tone="red"
+            />
+            <span className="inline-flex h-8 items-center px-1">
               {text.comments} {post.comments}
             </span>
+            {/* 게시글이 속한 게시판을 기준으로 목록으로 돌아갈 경로를 결정합니다. */}
+            <Link
+              className="ml-auto inline-flex h-8 items-center rounded-md border border-[#dedede] bg-white px-4 text-sm font-bold text-[#555555] hover:bg-[#fafafa]"
+              href={
+                post.board === "자유게시판"
+                  ? "/free"
+                  : post.board === "장터게시판"
+                    ? "/market"
+                    : post.board === "족보경매장"
+                      ? "/exam-auction"
+                      : "/reviews"
+              }
+            >
+              {text.back}
+            </Link>
           </div>
         </section>
       </article>
-
-      <div className="mx-auto mt-5 max-w-3xl">
-        {/* 게시글이 속한 게시판을 기준으로 목록으로 돌아갈 경로를 결정합니다. */}
-        <Link
-          className="inline-flex rounded-md border border-[#dedede] bg-white px-4 py-2 text-sm font-bold text-[#555555] hover:bg-[#fafafa]"
-          href={
-            post.board === "자유게시판"
-              ? "/free"
-              : post.board === "장터게시판"
-                ? "/market"
-                : post.board === "족보경매장"
-                  ? "/exam-auction"
-                  : "/reviews"
-          }
-        >
-          {text.back}
-        </Link>
-      </div>
     </main>
   );
 }

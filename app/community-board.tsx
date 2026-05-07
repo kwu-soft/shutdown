@@ -11,6 +11,7 @@ import {
   type BoardKey,
   type CommunityPost,
 } from "./community-data";
+import ReportAuthorButton from "./report-author-button";
 
 type CommunityBoardProps = {
   // 현재 열려 있는 게시판을 표시하기 위한 키입니다.
@@ -58,6 +59,9 @@ const writeHrefByBoard: Partial<Record<BoardKey, string>> = {
   reviews: "/write/reviews",
 };
 
+const lockedAuctionMessage =
+  "낙찰된 사용자만 게시물 내용을 확인할 수 있습니다.";
+
 export default function CommunityBoard({
   activeBoard,
   title,
@@ -75,6 +79,9 @@ export default function CommunityBoard({
     Object.fromEntries(
       allPosts.map((post) => [post.id, post.authorRecommendations]),
     ),
+  );
+  const [likes, setLikes] = useState(() =>
+    Object.fromEntries(allPosts.map((post) => [post.id, post.likes])),
   );
 
   // 추천 수가 바뀔 때마다 오른쪽 추천 랭킹을 다시 계산합니다.
@@ -94,6 +101,13 @@ export default function CommunityBoard({
   // 기존 상태를 펼친 뒤 선택한 postId만 덮어써서 다른 게시글 수치는 유지합니다.
   const handleRecommend = (postId: number) => {
     setRecommendations((current) => ({
+      ...current,
+      [postId]: (current[postId] ?? 0) + 1,
+    }));
+  };
+
+  const handleLike = (postId: number) => {
+    setLikes((current) => ({
       ...current,
       [postId]: (current[postId] ?? 0) + 1,
     }));
@@ -258,7 +272,9 @@ export default function CommunityBoard({
                       </p>
                     ) : null}
                     <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#666666]">
-                      {post.preview}
+                      {post.currentBid && !post.isAwarded
+                        ? lockedAuctionMessage
+                        : post.preview}
                     </p>
                   </div>
                   {/* 장터 글에는 가격과 거래 상태가 있으므로 오른쪽에 별도로 보여줍니다. */}
@@ -289,13 +305,18 @@ export default function CommunityBoard({
                   ) : null}
                 </Link>
                 {/* 하단 액션 영역: 좋아요/댓글 수와 추천 버튼을 함께 배치합니다. */}
-                <div className="mt-3 flex flex-wrap items-center gap-4 text-xs font-semibold text-[#888888]">
-                  <span className="text-[#c62917]">
-                    {ui.likes} {post.likes}
-                  </span>
-                  <span>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#888888]">
+                  <button
+                    className="rounded-md border border-[#c62917] px-3 py-1.5 text-xs font-bold text-[#c62917] transition hover:bg-[#fff5f3]"
+                    onClick={() => handleLike(post.id)}
+                    type="button"
+                  >
+                    {ui.likes} {likes[post.id] ?? post.likes}
+                  </button>
+                  <span className="inline-flex h-8 items-center px-1">
                     {ui.comments} {post.comments}
                   </span>
+                  <ReportAuthorButton author={post.author} />
                   {post.price ? <span>{ui.buy}</span> : null}
                   {post.bids ? (
                     <span>

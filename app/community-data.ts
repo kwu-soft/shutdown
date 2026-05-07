@@ -18,6 +18,7 @@ export type CommunityPost = {
   currentBid?: string;
   bids?: number;
   endsIn?: string;
+  isAwarded?: boolean;
   rating?: string;
   professor?: string;
 };

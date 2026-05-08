@@ -1,7 +1,7 @@
 "use client";
 
 // 자유/장터/족보 게시글 상세 페이지에서 댓글을 작성하고 목록으로 보여주는 컴포넌트입니다.
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { authStorageKey, nicknameStorageKey } from "./auth-link";
 
 type CommentSectionProps = {
@@ -24,18 +24,13 @@ export default function CommentSection({
   const [content, setContent] = useState("");
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [nickname, setNickname] = useState("사용자");
-  const [userId, setUserId] = useState("guest");
-
-  useEffect(() => {
-    setNickname(window.localStorage.getItem(nicknameStorageKey) || "사용자");
-    setUserId(window.localStorage.getItem(authStorageKey) || "guest");
-  }, []);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const nextContent = content.trim();
+    const nickname = window.localStorage.getItem(nicknameStorageKey) || "사용자";
+    const userId = window.localStorage.getItem(authStorageKey) || "guest";
 
     if (!nextContent) {
       return;

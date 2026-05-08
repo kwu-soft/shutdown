@@ -3,7 +3,8 @@
 // 로그인 여부에 따라 헤더 오른쪽에 로그인 버튼 또는 내 아이디 링크를 보여주는 컴포넌트입니다.
 // 실제 서버 인증이 아직 없으므로 브라우저 localStorage에 저장된 userId를 로그인 상태로 사용합니다.
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+import { localStorageChangedEvent, notifyLocalStorageChanged } from "./storage";
 
 type AuthLinkProps = {
   loginLabel: string;
@@ -11,22 +12,38 @@ type AuthLinkProps = {
 
 export const authStorageKey = "campus-board-user-id";
 export const nicknameStorageKey = "campus-board-nickname";
+export const nicknameByEmailStorageKey = "campus-board-nickname-by-email";
 export const userProfileStorageKey = "campus-board-user-profile";
 
+function getStoredAuthLabel() {
+  return (
+    window.localStorage.getItem(nicknameStorageKey) ||
+    window.localStorage.getItem(authStorageKey) ||
+    ""
+  );
+}
+
+function subscribeToAuthStorage(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(localStorageChangedEvent, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(localStorageChangedEvent, onStoreChange);
+  };
+}
+
 export default function AuthLink({ loginLabel }: AuthLinkProps) {
-  const [nickname, setNickname] = useState("");
-
-  useEffect(() => {
-    const savedNickname = window.localStorage.getItem(nicknameStorageKey);
-    const savedUserId = window.localStorage.getItem(authStorageKey);
-
-    setNickname(savedNickname || savedUserId || "");
-  }, []);
+  const nickname = useSyncExternalStore(
+    subscribeToAuthStorage,
+    getStoredAuthLabel,
+    () => "",
+  );
 
   const handleLogout = () => {
     window.localStorage.removeItem(authStorageKey);
     window.localStorage.removeItem(nicknameStorageKey);
-    setNickname("");
+    notifyLocalStorageChanged();
   };
 
   if (nickname) {

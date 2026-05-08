@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import {
   authStorageKey,
+  nicknameByEmailStorageKey,
   nicknameStorageKey,
   userProfileStorageKey,
 } from "./auth-link";
-
-const nicknameByEmailStorageKey = "campus-board-nickname-by-email";
+import { notifyLocalStorageChanged, safeJsonParse } from "./storage";
 
 // 로그인 페이지와 회원가입 모달에서 쓰는 모든 문구를 모아둡니다.
 // 폼 구조와 문구를 분리해두면 화면 문구 수정이 훨씬 단순해집니다.
@@ -50,13 +50,15 @@ export default function Login() {
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("email") ?? "");
     const userId = email.split("@")[0] || "campus-user";
-    const savedNicknames = JSON.parse(
-      window.localStorage.getItem(nicknameByEmailStorageKey) ?? "{}",
-    ) as Record<string, string>;
+    const savedNicknames = safeJsonParse<Record<string, string>>(
+      window.localStorage.getItem(nicknameByEmailStorageKey),
+      {},
+    );
     const nickname = savedNicknames[email] || `${userId}님`;
 
     window.localStorage.setItem(authStorageKey, userId);
     window.localStorage.setItem(nicknameStorageKey, nickname);
+    notifyLocalStorageChanged();
     router.push("/");
   };
 
@@ -68,9 +70,10 @@ export default function Login() {
     const email = String(formData.get("signupEmail") ?? "").trim();
     const major = String(formData.get("major") ?? "").trim();
     const userId = email.split("@")[0] || "campus-user";
-    const savedNicknames = JSON.parse(
-      window.localStorage.getItem(nicknameByEmailStorageKey) ?? "{}",
-    ) as Record<string, string>;
+    const savedNicknames = safeJsonParse<Record<string, string>>(
+      window.localStorage.getItem(nicknameByEmailStorageKey),
+      {},
+    );
 
     window.localStorage.setItem(
       nicknameByEmailStorageKey,
@@ -90,6 +93,7 @@ export default function Login() {
         userId,
       }),
     );
+    notifyLocalStorageChanged();
     router.push("/");
   };
 

@@ -1,10 +1,13 @@
 // 게시판 목록, 게시글 더미 데이터, 추천 랭킹용 데이터를 모아둔 파일입니다.
 // 지금은 서버나 DB 대신 이 파일의 배열을 데이터 소스로 사용합니다.
 export type BoardKey = "home" | "free" | "market" | "examAuction" | "reviews";
+export type PostBoardKey = Exclude<BoardKey, "home">;
+export type MarketStatusKey = "available" | "sold" | "reserved";
 
 // 모든 게시글이 공통으로 가져야 하는 필드와 게시판 종류별 선택 필드를 정의합니다.
 export type CommunityPost = {
   id: number;
+  boardKey: PostBoardKey;
   board: string;
   title: string;
   preview: string;
@@ -14,6 +17,7 @@ export type CommunityPost = {
   author: string;
   authorRecommendations: number;
   price?: string;
+  statusKey?: MarketStatusKey;
   status?: string;
   currentBid?: string;
   bids?: number;
@@ -25,16 +29,17 @@ export type CommunityPost = {
 
 // 왼쪽 게시판 메뉴와 모바일 게시판 탭에서 공통으로 사용하는 게시판 링크 목록입니다.
 export const boards = [
-  { label: "자유게시판", href: "/free" },
-  { label: "장터게시판", href: "/market" },
-  { label: "족보경매장", href: "/exam-auction" },
-  { label: "강의평게시판", href: "/reviews" },
-];
+  { key: "free", label: "자유게시판", href: "/free" },
+  { key: "market", label: "장터게시판", href: "/market" },
+  { key: "examAuction", label: "족보경매장", href: "/exam-auction" },
+  { key: "reviews", label: "강의평게시판", href: "/reviews" },
+] satisfies Array<{ key: PostBoardKey; label: string; href: string }>;
 
 // 자유게시판 글은 가격, 경매, 강의평 정보 없이 일반 커뮤니티 글 정보만 갖습니다.
 export const freePosts: CommunityPost[] = [
   {
     id: 1,
+    boardKey: "free",
     board: "자유게시판",
     title:
       "오늘 학생식당 돈가스 괜찮나요?",
@@ -48,6 +53,7 @@ export const freePosts: CommunityPost[] = [
   },
   {
     id: 2,
+    boardKey: "free",
     board: "자유게시판",
     title:
       "중앙도서관 오후에 자리 많이 남아있나요?",
@@ -61,6 +67,7 @@ export const freePosts: CommunityPost[] = [
   },
   {
     id: 3,
+    boardKey: "free",
     board: "자유게시판",
     title:
       "축제 두 번째 날 부스 추천해주세요",
@@ -78,6 +85,7 @@ export const freePosts: CommunityPost[] = [
 export const marketPosts: CommunityPost[] = [
   {
     id: 4,
+    boardKey: "market",
     board: "장터게시판",
     title:
       "아이패드 에어 5세대 64GB 필기용",
@@ -89,10 +97,12 @@ export const marketPosts: CommunityPost[] = [
     author: "하린",
     authorRecommendations: 55,
     price: "385,000원",
+    statusKey: "available",
     status: "구매가능",
   },
   {
     id: 5,
+    boardKey: "market",
     board: "장터게시판",
     title:
       "전공서 세트 자료구조 + 운영체제",
@@ -104,10 +114,12 @@ export const marketPosts: CommunityPost[] = [
     author: "지호",
     authorRecommendations: 48,
     price: "42,000원",
+    statusKey: "sold",
     status: "판매완료",
   },
   {
     id: 6,
+    boardKey: "market",
     board: "장터게시판",
     title:
       "기숙사용 미니 청소기 거의 새것",
@@ -119,6 +131,7 @@ export const marketPosts: CommunityPost[] = [
     author: "유나",
     authorRecommendations: 31,
     price: "28,000원",
+    statusKey: "reserved",
     status: "예약중",
   },
 ];
@@ -127,6 +140,7 @@ export const marketPosts: CommunityPost[] = [
 export const examAuctionPosts: CommunityPost[] = [
   {
     id: 10,
+    boardKey: "examAuction",
     board: "족보경매장",
     title:
       "자료구조 중간고사 복원 정리본",
@@ -143,6 +157,7 @@ export const examAuctionPosts: CommunityPost[] = [
   },
   {
     id: 11,
+    boardKey: "examAuction",
     board: "족보경매장",
     title:
       "웹프로그래밍 기말 프로젝트 채점포인트",
@@ -159,6 +174,7 @@ export const examAuctionPosts: CommunityPost[] = [
   },
   {
     id: 12,
+    boardKey: "examAuction",
     board: "족보경매장",
     title:
       "현대사회와윤리 기출 토론주제 모음",
@@ -179,6 +195,7 @@ export const examAuctionPosts: CommunityPost[] = [
 export const reviewPosts: CommunityPost[] = [
   {
     id: 7,
+    boardKey: "reviews",
     board: "강의평게시판",
     title:
       "웹프로그래밍 과제는 많지만 실습이 탄탄해요",
@@ -194,6 +211,7 @@ export const reviewPosts: CommunityPost[] = [
   },
   {
     id: 8,
+    boardKey: "reviews",
     board: "강의평게시판",
     title:
       "현대사회와윤리 토론 참여 비중이 큽니다",
@@ -209,6 +227,7 @@ export const reviewPosts: CommunityPost[] = [
   },
   {
     id: 9,
+    boardKey: "reviews",
     board: "강의평게시판",
     title:
       "자료구조 시험 난이도는 높지만 설명이 명확해요",

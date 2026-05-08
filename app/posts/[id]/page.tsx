@@ -55,7 +55,7 @@ export default async function PostPage({ params }: PostPageProps) {
   }
 
   const canViewContent = !post.currentBid || post.isAwarded;
-  const canWriteComments = post.board !== "강의평게시판";
+  const canWriteComments = post.boardKey !== "reviews";
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] px-4 py-8 text-[#222222]">
@@ -119,7 +119,7 @@ export default async function PostPage({ params }: PostPageProps) {
                 <p className="text-xs text-[#888888]">{text.price}</p>
                 <p
                   className={`mt-1 font-black ${
-                    post.status === "판매완료"
+                    post.statusKey === "sold"
                       ? "text-[#999999]"
                       : "text-[#c62917]"
                   }`}
@@ -134,7 +134,7 @@ export default async function PostPage({ params }: PostPageProps) {
               <MarketPurchaseButton
                 href={`/purchase/${post.id}`}
                 label={text.buy}
-                status={post.status}
+                statusKey={post.statusKey}
               />
             </div>
           ) : null}
@@ -168,11 +168,11 @@ export default async function PostPage({ params }: PostPageProps) {
             <Link
               className="ml-auto inline-flex h-8 items-center rounded-md border border-[#dedede] bg-white px-4 text-sm font-bold text-[#555555] hover:bg-[#fafafa]"
               href={
-                post.board === "자유게시판"
+                post.boardKey === "free"
                   ? "/free"
-                  : post.board === "장터게시판"
+                  : post.boardKey === "market"
                     ? "/market"
-                    : post.board === "족보경매장"
+                    : post.boardKey === "examAuction"
                       ? "/exam-auction"
                       : "/reviews"
               }

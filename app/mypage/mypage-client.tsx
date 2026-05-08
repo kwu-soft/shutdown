@@ -2,12 +2,14 @@
 
 // 마이페이지의 탭 UI와 localStorage 기반 개인 정보/계좌 정보 관리를 담당합니다.
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import {
   authStorageKey,
+  nicknameByEmailStorageKey,
   nicknameStorageKey,
   userProfileStorageKey,
 } from "../auth-link";
+import { notifyLocalStorageChanged, safeJsonParse } from "../storage";
 
 type ActiveTab = "profile" | "account";
 
@@ -25,53 +27,59 @@ type AccountInfo = {
 
 const accountStorageKey = "campus-board-account-info";
 
+const emptyProfile: UserProfile = {
+  email: "",
+  major: "",
+  nickname: "",
+  userId: "",
+};
+
+const emptyAccountInfo: AccountInfo = {
+  bankName: "",
+  accountNumber: "",
+};
+
+function getStoredProfile() {
+  if (typeof window === "undefined") {
+    return emptyProfile;
+  }
+
+  const savedProfile = safeJsonParse<UserProfile | null>(
+    window.localStorage.getItem(userProfileStorageKey),
+    null,
+  );
+
+  return (
+    savedProfile ?? {
+      ...emptyProfile,
+      nickname: window.localStorage.getItem(nicknameStorageKey) ?? "",
+      userId: window.localStorage.getItem(authStorageKey) ?? "",
+    }
+  );
+}
+
+function getStoredAccountInfo() {
+  if (typeof window === "undefined") {
+    return emptyAccountInfo;
+  }
+
+  return safeJsonParse<AccountInfo | null>(
+    window.localStorage.getItem(accountStorageKey),
+    null,
+  ) ?? emptyAccountInfo;
+}
+
 export default function MyPageClient() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("profile");
-  const [profile, setProfile] = useState<UserProfile>({
-    email: "",
-    major: "",
-    nickname: "",
-    userId: "",
-  });
+  const [profile, setProfile] = useState<UserProfile>(getStoredProfile);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState<UserProfile>({
-    email: "",
-    major: "",
-    nickname: "",
-    userId: "",
-  });
-  const [accountInfo, setAccountInfo] = useState<AccountInfo>({
-    bankName: "",
-    accountNumber: "",
-  });
-  const [bankName, setBankName] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-
-  useEffect(() => {
-    const savedProfile = JSON.parse(
-      window.localStorage.getItem(userProfileStorageKey) ?? "null",
-    ) as UserProfile | null;
-    const savedAccountInfo = JSON.parse(
-      window.localStorage.getItem(accountStorageKey) ?? "null",
-    ) as AccountInfo | null;
-
-    const nextProfile =
-      savedProfile ?? {
-        email: "",
-        major: "",
-        nickname: window.localStorage.getItem(nicknameStorageKey) ?? "",
-        userId: window.localStorage.getItem(authStorageKey) ?? "",
-      };
-
-    setProfile(nextProfile);
-    setProfileForm(nextProfile);
-
-    if (savedAccountInfo) {
-      setAccountInfo(savedAccountInfo);
-      setBankName(savedAccountInfo.bankName);
-      setAccountNumber(savedAccountInfo.accountNumber);
-    }
-  }, []);
+  const [profileForm, setProfileForm] = useState<UserProfile>(getStoredProfile);
+  const [accountInfo, setAccountInfo] =
+    useState<AccountInfo>(getStoredAccountInfo);
+  const [bankName, setBankName] = useState(() => getStoredAccountInfo().bankName);
+  const [accountNumber, setAccountNumber] = useState(
+    () => getStoredAccountInfo().accountNumber,
+  );
 
   const handleSaveAccount = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -86,6 +94,7 @@ export default function MyPageClient() {
       JSON.stringify(nextAccountInfo),
     );
     setAccountInfo(nextAccountInfo);
+    notifyLocalStorageChanged();
   };
 
   const handleStartEditProfile = () => {
@@ -111,6 +120,23 @@ export default function MyPageClient() {
     window.localStorage.setItem(userProfileStorageKey, JSON.stringify(nextProfile));
     window.localStorage.setItem(authStorageKey, nextProfile.userId);
     window.localStorage.setItem(nicknameStorageKey, nextProfile.nickname);
+
+    if (nextProfile.email) {
+      const savedNicknames = safeJsonParse<Record<string, string>>(
+        window.localStorage.getItem(nicknameByEmailStorageKey),
+        {},
+      );
+
+      window.localStorage.setItem(
+        nicknameByEmailStorageKey,
+        JSON.stringify({
+          ...savedNicknames,
+          [nextProfile.email]: nextProfile.nickname,
+        }),
+      );
+    }
+
+    notifyLocalStorageChanged();
     setProfile(nextProfile);
     setProfileForm(nextProfile);
     setIsEditingProfile(false);

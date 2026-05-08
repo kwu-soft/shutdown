@@ -110,13 +110,8 @@ export default function CommunityBoard({
           {/* 데스크톱용 게시판 목록입니다. 현재 게시판은 붉은색 배경으로 강조합니다. */}
           <nav className="overflow-hidden rounded-md border border-[#dedede] bg-white">
             {boards.map((board) => {
-              // activeBoard 값과 링크 주소를 비교해서 현재 선택된 게시판인지 판단합니다.
-              const isActive =
-                (activeBoard === "free" && board.href === "/free") ||
-                (activeBoard === "market" && board.href === "/market") ||
-                (activeBoard === "examAuction" &&
-                  board.href === "/exam-auction") ||
-                (activeBoard === "reviews" && board.href === "/reviews");
+              // 화면 문구가 바뀌어도 현재 게시판 판별은 안정적인 key로 처리합니다.
+              const isActive = activeBoard === board.key;
 
               return (
                 <Link
@@ -254,7 +249,7 @@ export default function CommunityBoard({
                       <p className="text-xs text-[#999999]">{ui.price}</p>
                       <p
                         className={`mt-1 text-sm font-black ${
-                          post.status === "판매완료"
+                          post.statusKey === "sold"
                             ? "text-[#999999]"
                             : "text-[#c62917]"
                         }`}
@@ -286,7 +281,7 @@ export default function CommunityBoard({
                   <span className="inline-flex h-8 items-center px-1 text-[#c62917]">
                     {ui.likes} {post.likes}
                   </span>
-                  {post.board !== "강의평게시판" ? (
+                  {post.boardKey !== "reviews" ? (
                     <span className="inline-flex h-8 items-center px-1">
                       {ui.comments} {post.comments}
                     </span>

@@ -21,7 +21,7 @@ const text = {
 
 export function generateStaticParams() {
   return allPosts
-    .filter((post) => post.price)
+    .filter((post) => post.price && post.statusKey === "available")
     .map((post) => ({
       id: String(post.id),
     }));
@@ -31,7 +31,7 @@ export default async function PurchasePage({ params }: PurchasePageProps) {
   const { id } = await params;
   const post = allPosts.find((item) => item.id === Number(id));
 
-  if (!post || !post.price) {
+  if (!post || !post.price || post.statusKey !== "available") {
     notFound();
   }
 

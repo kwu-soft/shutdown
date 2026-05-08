@@ -11,7 +11,6 @@ import {
   type BoardKey,
   type CommunityPost,
 } from "./community-data";
-import ReportAuthorButton from "./report-author-button";
 
 type CommunityBoardProps = {
   // 현재 열려 있는 게시판을 표시하기 위한 키입니다.
@@ -253,7 +252,13 @@ export default function CommunityBoard({
                   {post.price ? (
                     <div className="shrink-0 text-right">
                       <p className="text-xs text-[#999999]">{ui.price}</p>
-                      <p className="mt-1 text-sm font-black text-[#c62917]">
+                      <p
+                        className={`mt-1 text-sm font-black ${
+                          post.status === "판매완료"
+                            ? "text-[#999999]"
+                            : "text-[#c62917]"
+                        }`}
+                      >
                         {post.price}
                       </p>
                       {post.status ? (
@@ -286,7 +291,6 @@ export default function CommunityBoard({
                       {ui.comments} {post.comments}
                     </span>
                   ) : null}
-                  <ReportAuthorButton author={post.author} />
                   {post.price ? <span>{ui.buy}</span> : null}
                   {post.bids ? (
                     <span>

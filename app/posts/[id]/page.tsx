@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import BidPanel from "../../bid-panel";
 import CommentSection from "../../comment-section";
 import { allPosts } from "../../community-data";
+import MarketPurchaseButton from "../../market-purchase-button";
 import PostCounterButton from "../../post-counter-button";
 import ReportAuthorButton from "../../report-author-button";
 
@@ -116,7 +117,13 @@ export default async function PostPage({ params }: PostPageProps) {
             <div className="grid gap-3 rounded-md border border-[#eeeeee] bg-[#fafafa] p-4 sm:grid-cols-[1fr_1fr_auto]">
               <div>
                 <p className="text-xs text-[#888888]">{text.price}</p>
-                <p className="mt-1 font-black text-[#c62917]">
+                <p
+                  className={`mt-1 font-black ${
+                    post.status === "판매완료"
+                      ? "text-[#999999]"
+                      : "text-[#c62917]"
+                  }`}
+                >
                   {post.price}
                 </p>
               </div>
@@ -124,12 +131,11 @@ export default async function PostPage({ params }: PostPageProps) {
                 <p className="text-xs text-[#888888]">{text.status}</p>
                 <p className="mt-1 font-bold">{post.status}</p>
               </div>
-              <Link
-                className="inline-flex h-11 items-center rounded-md bg-[#c62917] px-4 text-sm font-bold !text-white transition hover:bg-[#ae2112]"
+              <MarketPurchaseButton
                 href={`/purchase/${post.id}`}
-              >
-                {text.buy}
-              </Link>
+                label={text.buy}
+                status={post.status}
+              />
             </div>
           ) : null}
 

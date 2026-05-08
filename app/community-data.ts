@@ -104,7 +104,7 @@ export const marketPosts: CommunityPost[] = [
     author: "지호",
     authorRecommendations: 48,
     price: "42,000원",
-    status: "구매가능",
+    status: "판매완료",
   },
   {
     id: 6,

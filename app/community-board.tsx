@@ -2,7 +2,7 @@
 
 // 각 게시판 페이지에서 공통으로 사용하는 목록, 검색, 추천 랭킹 UI입니다.
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import AuthLink from "./auth-link";
 import {
   allPosts,
@@ -73,45 +73,17 @@ export default function CommunityBoard({
   // 값이 없는 게시판이 생기면 버튼을 숨길 수 있게 선택형 매핑으로 둡니다.
   const writeHref = writeHrefByBoard[activeBoard];
 
-  // 추천 버튼을 누른 결과는 서버에 저장하지 않고 현재 화면 상태로만 관리합니다.
-  // 초기값은 모든 게시글의 authorRecommendations 값을 post.id 기준으로 바꾼 객체입니다.
-  const [recommendations, setRecommendations] = useState(() =>
-    Object.fromEntries(
-      allPosts.map((post) => [post.id, post.authorRecommendations]),
-    ),
-  );
-  const [likes, setLikes] = useState(() =>
-    Object.fromEntries(allPosts.map((post) => [post.id, post.likes])),
-  );
-
-  // 추천 수가 바뀔 때마다 오른쪽 추천 랭킹을 다시 계산합니다.
-  // useMemo는 recommendations가 바뀌지 않으면 이전 계산 결과를 재사용합니다.
+  // 오른쪽 추천 랭킹은 더미 데이터의 추천수를 기준으로 계산합니다.
   const ranking = useMemo(() => {
     return [...allPosts]
       .map((post) => ({
         id: post.id,
         author: post.author,
-        recommendations: recommendations[post.id] ?? post.authorRecommendations,
+        recommendations: post.authorRecommendations,
       }))
       .sort((first, second) => second.recommendations - first.recommendations)
       .slice(0, 3);
-  }, [recommendations]);
-
-  // 특정 게시글의 추천 버튼을 누르면 해당 게시글 추천 수만 1 올립니다.
-  // 기존 상태를 펼친 뒤 선택한 postId만 덮어써서 다른 게시글 수치는 유지합니다.
-  const handleRecommend = (postId: number) => {
-    setRecommendations((current) => ({
-      ...current,
-      [postId]: (current[postId] ?? 0) + 1,
-    }));
-  };
-
-  const handleLike = (postId: number) => {
-    setLikes((current) => ({
-      ...current,
-      [postId]: (current[postId] ?? 0) + 1,
-    }));
-  };
+  }, []);
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] text-[#222222]">
@@ -306,16 +278,14 @@ export default function CommunityBoard({
                 </Link>
                 {/* 하단 액션 영역: 좋아요/댓글 수와 추천 버튼을 함께 배치합니다. */}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#888888]">
-                  <button
-                    className="rounded-md border border-[#c62917] px-3 py-1.5 text-xs font-bold text-[#c62917] transition hover:bg-[#fff5f3]"
-                    onClick={() => handleLike(post.id)}
-                    type="button"
-                  >
-                    {ui.likes} {likes[post.id] ?? post.likes}
-                  </button>
-                  <span className="inline-flex h-8 items-center px-1">
-                    {ui.comments} {post.comments}
+                  <span className="inline-flex h-8 items-center px-1 text-[#c62917]">
+                    {ui.likes} {post.likes}
                   </span>
+                  {post.board !== "강의평게시판" ? (
+                    <span className="inline-flex h-8 items-center px-1">
+                      {ui.comments} {post.comments}
+                    </span>
+                  ) : null}
                   <ReportAuthorButton author={post.author} />
                   {post.price ? <span>{ui.buy}</span> : null}
                   {post.bids ? (
@@ -323,14 +293,6 @@ export default function CommunityBoard({
                       {ui.bids} {post.bids}
                     </span>
                   ) : null}
-                  <button
-                    className="ml-auto rounded-md border border-[#c62917] px-3 py-1.5 text-xs font-bold text-[#c62917] transition hover:bg-[#fff5f3]"
-                    onClick={() => handleRecommend(post.id)}
-                    type="button"
-                  >
-                    {ui.recommend}{" "}
-                    {recommendations[post.id] ?? post.authorRecommendations}
-                  </button>
                 </div>
               </div>
             ))}

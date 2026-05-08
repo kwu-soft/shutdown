@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BidPanel from "../../bid-panel";
+import CommentSection from "../../comment-section";
 import { allPosts } from "../../community-data";
 import PostCounterButton from "../../post-counter-button";
 import ReportAuthorButton from "../../report-author-button";
@@ -53,6 +54,7 @@ export default async function PostPage({ params }: PostPageProps) {
   }
 
   const canViewContent = !post.currentBid || post.isAwarded;
+  const canWriteComments = post.board !== "강의평게시판";
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] px-4 py-8 text-[#222222]">
@@ -122,12 +124,12 @@ export default async function PostPage({ params }: PostPageProps) {
                 <p className="text-xs text-[#888888]">{text.status}</p>
                 <p className="mt-1 font-bold">{post.status}</p>
               </div>
-              <button
-                className="h-11 rounded-md bg-[#c62917] px-4 text-sm font-bold text-white transition hover:bg-[#ae2112]"
-                type="button"
+              <Link
+                className="inline-flex h-11 items-center rounded-md bg-[#c62917] px-4 text-sm font-bold !text-white transition hover:bg-[#ae2112]"
+                href={`/purchase/${post.id}`}
               >
                 {text.buy}
-              </button>
+              </Link>
             </div>
           ) : null}
 
@@ -151,9 +153,11 @@ export default async function PostPage({ params }: PostPageProps) {
               label={text.likes}
               tone="red"
             />
-            <span className="inline-flex h-8 items-center px-1">
-              {text.comments} {post.comments}
-            </span>
+            {canWriteComments ? (
+              <span className="inline-flex h-8 items-center px-1">
+                {text.comments} {post.comments}
+              </span>
+            ) : null}
             {/* 게시글이 속한 게시판을 기준으로 목록으로 돌아갈 경로를 결정합니다. */}
             <Link
               className="ml-auto inline-flex h-8 items-center rounded-md border border-[#dedede] bg-white px-4 text-sm font-bold text-[#555555] hover:bg-[#fafafa]"
@@ -171,6 +175,7 @@ export default async function PostPage({ params }: PostPageProps) {
             </Link>
           </div>
         </section>
+        {canWriteComments ? <CommentSection initialCount={post.comments} /> : null}
       </article>
     </main>
   );

@@ -14,16 +14,19 @@ export default function PostCounterButton({
   label,
   tone = "gray",
 }: PostCounterButtonProps) {
-  const [count, setCount] = useState(initialCount);
+  const [isSelected, setIsSelected] = useState(false);
+  const count = isSelected ? initialCount + 1 : initialCount;
 
   return (
     <button
       className={`inline-flex h-8 items-center rounded-md border px-3 text-xs font-bold transition ${
-        tone === "red"
+        isSelected
+          ? "border-[#c62917] bg-[#fff5f3] text-[#c62917]"
+          : tone === "red"
           ? "border-[#c62917] text-[#c62917] hover:bg-[#fff5f3]"
           : "border-[#dedede] text-[#777777] hover:border-[#c62917] hover:text-[#c62917]"
       }`}
-      onClick={() => setCount((current) => current + 1)}
+      onClick={() => setIsSelected((current) => !current)}
       type="button"
     >
       {label} {count}

@@ -10,7 +10,6 @@ import {
   createReviewPostFromStoredReview,
   groupReviewPosts,
   reviewPosts,
-  trending,
   type BoardKey,
   type CommunityPost,
   type StoredReviewPost,
@@ -65,7 +64,6 @@ const ui = {
   bids: "입찰",
   recommend: "추천",
   ranking: "추천 랭킹",
-  viewed: "많이 본 글",
   openPost: "게시글 열기",
 };
 
@@ -494,22 +492,6 @@ export default function CommunityBoard({
             </ol>
           </section>
 
-          {/* 많이 본 글 목록은 trending 배열의 문자열을 그대로 보여주는 보조 영역입니다. */}
-          <section className="rounded-md border border-[#dedede] bg-white">
-            <div className="border-b border-[#eeeeee] px-4 py-3">
-              <h2 className="text-sm font-bold">{ui.viewed}</h2>
-            </div>
-            <ol className="divide-y divide-[#eeeeee]">
-              {trending.map((item, index) => (
-                <li className="flex gap-3 px-4 py-3 text-sm" key={item}>
-                  <span className="w-4 font-bold text-[#c62917]">
-                    {index + 1}
-                  </span>
-                  <span className="line-clamp-1 text-[#333333]">{item}</span>
-                </li>
-              ))}
-            </ol>
-          </section>
         </aside>
       </div>
     </main>

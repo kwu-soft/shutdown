@@ -3,13 +3,14 @@
 // 로그인 화면과 회원가입 모달 UI를 담당하는 클라이언트 컴포넌트입니다.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import React, { useState } from "react";
 import {
   authStorageKey,
   nicknameByEmailStorageKey,
   nicknameStorageKey,
   userProfileStorageKey,
 } from "./auth-link";
+import { apiLogin, apiRegister, JWT_KEY } from "./lib/api";
 import { notifyLocalStorageChanged, safeJsonParse } from "./storage";
 
 // 로그인 페이지와 회원가입 모달에서 쓰는 모든 문구를 모아둡니다.
@@ -44,57 +45,83 @@ export default function Login() {
   // 회원가입 버튼을 눌렀을 때 모달을 열고, 닫기 버튼을 누르면 다시 숨깁니다.
   const [isSignupOpen, setIsSignupOpen] = useState(false);
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+  const [loginError, setLoginError] = useState("");
+  const [signupError, setSignupError] = useState("");
+
+  const handleLogin = async (event: React.SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLoginError("");
 
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("email") ?? "");
-    const userId = email.split("@")[0] || "campus-user";
-    const savedNicknames = safeJsonParse<Record<string, string>>(
-      window.localStorage.getItem(nicknameByEmailStorageKey),
-      {},
-    );
-    const nickname = savedNicknames[email] || `${userId}님`;
+    const password = String(formData.get("password") ?? "");
 
-    window.localStorage.setItem(authStorageKey, userId);
-    window.localStorage.setItem(nicknameStorageKey, nickname);
-    notifyLocalStorageChanged();
-    router.push("/");
+    try {
+      const token = await apiLogin(email, password);
+      window.localStorage.setItem(JWT_KEY, token);
+
+      // 다른 계정의 프로필이 남아있으면 지움
+      const savedProfile = safeJsonParse<{ email?: string } | null>(
+        window.localStorage.getItem(userProfileStorageKey),
+        null,
+      );
+      if (savedProfile && savedProfile.email !== email) {
+        window.localStorage.removeItem(userProfileStorageKey);
+      }
+
+      // 닉네임은 저장된 값 또는 이메일 앞부분으로 대체
+      const savedNicknames = safeJsonParse<Record<string, string>>(
+        window.localStorage.getItem(nicknameByEmailStorageKey),
+        {},
+      );
+      const userId = email.split("@")[0] || "campus-user";
+      const nickname = savedNicknames[email] || userId;
+      window.localStorage.setItem(authStorageKey, userId);
+      window.localStorage.setItem(nicknameStorageKey, nickname);
+      notifyLocalStorageChanged();
+      router.push("/");
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : "로그인 실패");
+    }
   };
 
-  const handleSignup = (event: FormEvent<HTMLFormElement>) => {
+  const handleSignup = async (event: React.SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);
     const nickname = String(formData.get("nickname") ?? "").trim();
     const email = String(formData.get("signupEmail") ?? "").trim();
+    const password = String(formData.get("signupPassword") ?? "");
     const major = String(formData.get("major") ?? "").trim();
     const userId = email.split("@")[0] || "campus-user";
-    const savedNicknames = safeJsonParse<Record<string, string>>(
-      window.localStorage.getItem(nicknameByEmailStorageKey),
-      {},
-    );
 
-    window.localStorage.setItem(
-      nicknameByEmailStorageKey,
-      JSON.stringify({
-        ...savedNicknames,
-        [email]: nickname,
-      }),
-    );
-    window.localStorage.setItem(authStorageKey, userId);
-    window.localStorage.setItem(nicknameStorageKey, nickname);
-    window.localStorage.setItem(
-      userProfileStorageKey,
-      JSON.stringify({
-        email,
-        major,
-        nickname,
-        userId,
-      }),
-    );
-    notifyLocalStorageChanged();
-    router.push("/");
+    try {
+      await apiRegister(nickname, email, password);
+
+      // 회원가입 성공 후 바로 로그인
+      const token = await apiLogin(email, password);
+      window.localStorage.setItem(JWT_KEY, token);
+
+      const savedNicknames = safeJsonParse<Record<string, string>>(
+        window.localStorage.getItem(nicknameByEmailStorageKey),
+        {},
+      );
+      window.localStorage.setItem(
+        nicknameByEmailStorageKey,
+        JSON.stringify({ ...savedNicknames, [email]: nickname }),
+      );
+      window.localStorage.setItem(authStorageKey, userId);
+      window.localStorage.setItem(nicknameStorageKey, nickname);
+      window.localStorage.setItem(
+        userProfileStorageKey,
+        JSON.stringify({ email, major, nickname, userId }),
+      );
+      notifyLocalStorageChanged();
+      setIsSignupOpen(false);
+      router.push("/");
+    } catch (err) {
+      setSignupError(err instanceof Error ? err.message : "회원가입 실패");
+    }
   };
 
   return (
@@ -144,9 +171,14 @@ export default function Login() {
             </label>
           </div>
 
-          {/* 로그인 제출 버튼입니다. 현재는 action/onSubmit이 없어 실제 인증 요청은 보내지 않습니다. */}
+          {loginError ? (
+            <p className="mt-3 rounded-md bg-[#fff5f3] px-3 py-2 text-sm font-bold text-[#c62917]">
+              {loginError}
+            </p>
+          ) : null}
+
           <button
-            className="mt-6 h-12 w-full rounded-md bg-[#c62917] text-sm font-bold text-white transition hover:bg-[#ae2112]"
+            className="mt-4 h-12 w-full rounded-md bg-[#c62917] text-sm font-bold text-white transition hover:bg-[#ae2112]"
             type="submit"
           >
             {text.submit}
@@ -273,7 +305,12 @@ export default function Login() {
                 </label>
               </div>
 
-              {/* 계정 만들기 버튼입니다. 실제 가입 API가 붙으면 이 폼의 submit에서 처리하면 됩니다. */}
+              {signupError ? (
+                <p className="rounded-md bg-[#fff5f3] px-3 py-2 text-sm font-bold text-[#c62917]">
+                  {signupError}
+                </p>
+              ) : null}
+
               <button
                 className="h-12 w-full rounded-md bg-[#c62917] text-sm font-bold text-white transition hover:bg-[#ae2112]"
                 type="submit"

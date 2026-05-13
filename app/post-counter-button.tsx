@@ -1,21 +1,37 @@
 "use client";
 
-// 게시글 상세 페이지에서 좋아요/추천수처럼 누르면 숫자가 올라가는 버튼입니다.
 import { useState } from "react";
 
 type PostCounterButtonProps = {
   initialCount: number;
   label: string;
   tone?: "red" | "gray";
+  onToggle?: () => Promise<{ liked: boolean; like_count: number }>;
 };
 
 export default function PostCounterButton({
   initialCount,
   label,
   tone = "gray",
+  onToggle,
 }: PostCounterButtonProps) {
   const [isSelected, setIsSelected] = useState(false);
-  const count = isSelected ? initialCount + 1 : initialCount;
+  const [count, setCount] = useState(initialCount);
+
+  const handleClick = async () => {
+    if (!onToggle) {
+      setIsSelected((c) => !c);
+      setCount((c) => (isSelected ? c - 1 : c + 1));
+      return;
+    }
+    try {
+      const result = await onToggle();
+      setIsSelected(result.liked);
+      setCount(result.like_count);
+    } catch {
+      // 로그인 필요 또는 네트워크 오류 시 무시
+    }
+  };
 
   return (
     <button
@@ -26,7 +42,7 @@ export default function PostCounterButton({
           ? "border-[#c62917] text-[#c62917] hover:bg-[#fff5f3]"
           : "border-[#dedede] text-[#777777] hover:border-[#c62917] hover:text-[#c62917]"
       }`}
-      onClick={() => setIsSelected((current) => !current)}
+      onClick={handleClick}
       type="button"
     >
       {label} {count}

@@ -1,28 +1,27 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import BidPanel from "../../bid-panel";
 import CommentSection from "../../comment-section";
-import {
-  allPosts,
-  type AssignmentLoad,
-  type GradingStyle,
-  type ReviewEntry,
-  type TeamProjectLoad,
-} from "../../community-data";
 import MarketPurchaseButton from "../../market-purchase-button";
 import PostCounterButton from "../../post-counter-button";
 import ReportAuthorButton from "../../report-author-button";
+import {
+  getFreePost,
+  getMarketPost,
+  getAuctionPost,
+  getReview,
+  toggleFreePostLike,
+  toggleMarketPostLike,
+  toggleAuctionPostLike,
+  type FreePostResponse,
+  type MarketPostResponse,
+  type AuctionPostResponse,
+  type ReviewPostResponse,
+} from "../../lib/api";
 
-// 게시글 id에 맞는 상세 내용을 보여주는 동적 상세 페이지입니다.
-// app/posts/[id]/page.tsx 파일명에서 [id]가 URL의 게시글 id 역할을 합니다.
-type PostPageProps = {
-  params: Promise<{
-    id: string;
-  }>;
-};
-
-// 상세 페이지에서 반복해서 쓰는 라벨 문구입니다.
-// 화면 텍스트를 이 객체에 모아두면 표현 문구만 바꾸고 레이아웃은 그대로 둘 수 있습니다.
 const text = {
   back: "목록으로 돌아가기",
   likes: "좋아요",
@@ -39,301 +38,267 @@ const text = {
   rating: "평점",
   professor: "교수",
   lockedAuction: "낙찰된 사용자만 게시물 내용을 확인할 수 있습니다.",
-  reviewCount: "강의평",
   assignment: "과제",
   teamProject: "조모임",
   grading: "성적",
 };
 
-const assignmentOptions: AssignmentLoad[] = ["많음", "보통", "적음", "없음"];
-const teamProjectOptions: TeamProjectLoad[] = ["많음", "보통", "적음", "없음"];
-const gradingOptions: GradingStyle[] = ["너그러움", "보통", "깐깐함"];
+const ASSIGNMENT_LABEL: Record<string, string> = {
+  many: "많음", normal: "보통", few: "적음", none: "없음",
+};
+const TEAM_LABEL: Record<string, string> = {
+  many: "많음", normal: "보통", few: "적음", none: "없음",
+};
+const GRADING_LABEL: Record<string, string> = {
+  generous: "너그러움", normal: "보통", strict: "깐깐함",
+};
+const SEMESTER_LABEL: Record<string, string> = {
+  "1": "1학기", "2": "2학기", summer: "여름학기", winter: "겨울학기",
+};
 
-function getAverageRating(entries: ReviewEntry[]) {
+type BoardKey = "free" | "market" | "examAuction" | "reviews";
+
+const BOARD_META: Record<BoardKey, { name: string; backHref: string }> = {
+  free: { name: "자유게시판", backHref: "/free" },
+  market: { name: "장터게시판", backHref: "/market" },
+  examAuction: { name: "족보경매장", backHref: "/exam-auction" },
+  reviews: { name: "강의평게시판", backHref: "/reviews" },
+};
+
+function toRelativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "방금";
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  return `${Math.floor(hr / 24)}일 전`;
+}
+
+function getEndsIn(deadlineStr: string): string {
+  const diff = new Date(deadlineStr).getTime() - Date.now();
+  if (diff <= 0) return "마감됨";
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 24) return `${hours}시간 후`;
+  return `${Math.floor(hours / 24)}일 후`;
+}
+
+function formatWon(amount: number): string {
+  return `${amount.toLocaleString("ko-KR")}원`;
+}
+
+type PostState =
+  | { type: "free"; data: FreePostResponse }
+  | { type: "market"; data: MarketPostResponse }
+  | { type: "examAuction"; data: AuctionPostResponse }
+  | { type: "reviews"; data: ReviewPostResponse };
+
+export default function PostPage() {
   return (
-    entries.reduce((total, entry) => total + entry.rating, 0) / entries.length
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#f5f5f5]">
+          <p className="text-[#777777]">로딩 중...</p>
+        </main>
+      }
+    >
+      <PostContent />
+    </Suspense>
   );
 }
 
-function getRatingPercent(entries: ReviewEntry[]) {
-  return Math.round((getAverageRating(entries) / 5) * 100);
-}
+function PostContent() {
+  const { id } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const board = (searchParams.get("board") ?? "free") as BoardKey;
 
-function getOptionPercent<T extends string>(
-  entries: ReviewEntry[],
-  options: T[],
-  getValue: (entry: ReviewEntry) => T,
-) {
-  return options.map((option) => {
-    const count = entries.filter((entry) => getValue(entry) === option).length;
+  const [post, setPost] = useState<PostState | null>(null);
+  const [error, setError] = useState(false);
 
-    return {
-      label: option,
-      percent: Math.round((count / entries.length) * 100),
-    };
-  });
-}
+  useEffect(() => {
+    const numId = Number(id);
+    const fetcher =
+      board === "free" ? getFreePost(numId) :
+      board === "market" ? getMarketPost(numId) :
+      board === "examAuction" ? getAuctionPost(numId) :
+      getReview(numId);
 
-// 정적 생성 대상이 될 게시글 id 목록을 Next.js에 알려줍니다.
-// allPosts의 모든 id를 문자열로 바꿔 /posts/1, /posts/2 같은 경로를 미리 만들게 합니다.
-export function generateStaticParams() {
-  return allPosts.map((post) => ({
-    id: String(post.id),
-  }));
-}
+    fetcher
+      .then((data) => setPost({ type: board, data } as PostState))
+      .catch(() => setError(true));
+  }, [id, board]);
 
-export default async function PostPage({ params }: PostPageProps) {
-  // Next.js 16에서는 params가 Promise 형태라 await로 id를 꺼냅니다.
-  const { id } = await params;
-  // URL에서 받은 id와 같은 게시글을 전체 게시글 목록에서 찾습니다.
-  const post = allPosts.find((item) => item.id === Number(id));
-
-  // 없는 id로 접근하면 Next.js의 404 페이지를 보여줍니다.
-  if (!post) {
-    notFound();
+  if (error) {
+    return (
+      <main className="min-h-screen bg-[#f5f5f5] px-4 py-8 text-[#222222]">
+        <div className="mx-auto max-w-3xl rounded-md border border-[#dedede] bg-white p-8 text-center">
+          <p className="font-bold text-[#c62917]">게시글을 불러올 수 없습니다.</p>
+        </div>
+      </main>
+    );
   }
 
-  const canViewContent = !post.currentBid || post.isAwarded;
-  const canWriteComments = post.boardKey !== "reviews";
-  const isReviewPost = post.boardKey === "reviews";
-  const reviewEntries = post.reviewEntries ?? [];
+  if (!post) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f5f5f5]">
+        <p className="text-[#777777]">로딩 중...</p>
+      </main>
+    );
+  }
+
+  const boardMeta = BOARD_META[board] ?? BOARD_META.free;
+  const isReview = post.type === "reviews";
+  const isAuction = post.type === "examAuction";
+  const isMarket = post.type === "market";
+
+  const title = post.data.title;
+  const content = post.data.content;
+  const author = post.data.author_name;
+  const time = toRelativeTime(post.data.created_at);
+
+  const canViewContent = !isAuction || (post.type === "examAuction" && post.data.is_ended);
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] px-4 py-8 text-[#222222]">
-      {/* 상세 본문 카드입니다. 게시글의 메타 정보, 제목, 내용, 거래/경매 정보를 한곳에 모읍니다. */}
       <article className="mx-auto max-w-3xl rounded-md border border-[#dedede] bg-white">
         <header className="border-b border-[#eeeeee] px-5 py-4">
-          {/* 게시판명, 평점, 작성 시각처럼 제목 위에 붙는 보조 정보입니다. */}
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <span className="rounded-sm bg-[#f1f1f1] px-2 py-1 text-xs font-semibold text-[#777777]">
-              {post.board}
+              {boardMeta.name}
             </span>
-            {post.rating ? (
+            {isReview && post.type === "reviews" && (
               <span className="rounded-sm bg-[#fff5f3] px-2 py-1 text-xs font-bold text-[#c62917]">
-                {text.rating} {post.rating}
+                {text.rating} {post.data.rating}
               </span>
-            ) : null}
-            <span className="text-xs text-[#999999]">{post.time}</span>
+            )}
+            <span className="text-xs text-[#999999]">{time}</span>
           </div>
-          {/* 게시글 제목과 작성자/추천수 정보를 헤더 영역에서 강조합니다. */}
-          <h1 className="text-2xl font-bold leading-8">{post.title}</h1>
-          {isReviewPost ? (
+          <h1 className="text-2xl font-bold leading-8">{title}</h1>
+          {isReview && post.type === "reviews" ? (
             <p className="mt-3 text-sm font-semibold text-[#777777]">
-              {post.professor} · {text.reviewCount} {reviewEntries.length}개
+              {post.data.professor_name} · {post.data.year}년 {SEMESTER_LABEL[post.data.semester]}
             </p>
           ) : (
             <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-[#777777]">
-              <span className="inline-flex h-8 items-center">
-                {text.author} {post.author}
-              </span>
-              <PostCounterButton
-                initialCount={post.authorRecommendations}
-                label={text.recommend}
-              />
-              <ReportAuthorButton author={post.author} />
+              <span className="inline-flex h-8 items-center">{text.author} {author}</span>
+              <PostCounterButton initialCount={0} label={text.recommend} />
+              <ReportAuthorButton author={author} />
             </div>
           )}
         </header>
 
         <section className="space-y-5 px-5 py-5">
-          {/* 강의평 글에만 교수 정보가 있으므로 값이 있을 때만 보여줍니다. */}
-          {post.professor ? (
-            <p className="text-sm font-semibold text-[#555555]">
-              {text.professor} {post.professor}
-            </p>
-          ) : null}
-
-          {/* 족보경매장 글은 낙찰된 경우에만 본문 내용을 보여줍니다. */}
-          {isReviewPost && reviewEntries.length > 0 ? (
+          {isReview && post.type === "reviews" ? (
             <>
-              <ReviewMetricSummary entries={reviewEntries} />
-              <section className="space-y-3">
-                <h2 className="text-sm font-black text-[#333333]">
-                  작성자별 강의평
-                </h2>
-                <ol className="divide-y divide-[#eeeeee] rounded-md border border-[#eeeeee]">
-                  {reviewEntries.map((entry) => (
-                    <li className="px-4 py-4" key={entry.id}>
-                      <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#777777]">
-                        <span className="text-[#c62917]">
-                          {entry.courseYear}년 {entry.courseSemester} 수강자
-                        </span>
-                        <span>{entry.time}</span>
-                        <span>평점 {Math.round(entry.rating)}점</span>
-                        <span>과제 {entry.assignmentLoad}</span>
-                        <span>조모임 {entry.teamProjectLoad}</span>
-                        <span>성적 {entry.gradingStyle}</span>
-                      </div>
-                      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-[#333333]">
-                        {entry.content}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              </section>
+              <ReviewDetailCard data={post.data} />
+              <p className="whitespace-pre-line text-base leading-8 text-[#333333]">{content}</p>
             </>
           ) : canViewContent ? (
-            <p className="whitespace-pre-line text-base leading-8 text-[#333333]">
-              {post.preview}
-            </p>
+            <p className="whitespace-pre-line text-base leading-8 text-[#333333]">{content}</p>
           ) : (
             <div className="rounded-md border border-[#f0d5d0] bg-[#fff5f3] p-4">
-              <p className="text-sm font-bold text-[#c62917]">
-                {text.lockedAuction}
-              </p>
+              <p className="text-sm font-bold text-[#c62917]">{text.lockedAuction}</p>
               <p className="mt-2 text-sm leading-6 text-[#777777]">
                 경매가 끝나고 낙찰 처리된 뒤 본문 내용을 볼 수 있습니다.
               </p>
             </div>
           )}
 
-          {/* 장터게시판 글일 때만 가격, 상태, 구매 버튼 영역을 보여줍니다. */}
-          {post.price ? (
+          {isMarket && post.type === "market" && (
             <div className="grid gap-3 rounded-md border border-[#eeeeee] bg-[#fafafa] p-4 sm:grid-cols-[1fr_1fr_auto]">
               <div>
                 <p className="text-xs text-[#888888]">{text.price}</p>
-                <p
-                  className={`mt-1 font-black ${
-                    post.statusKey === "sold"
-                      ? "text-[#999999]"
-                      : "text-[#c62917]"
-                  }`}
-                >
-                  {post.price}
-                </p>
+                <p className="mt-1 font-black text-[#c62917]">{formatWon(post.data.price)}</p>
               </div>
               <div>
                 <p className="text-xs text-[#888888]">{text.status}</p>
-                <p className="mt-1 font-bold">{post.status}</p>
+                <p className="mt-1 font-bold">구매가능</p>
               </div>
               <MarketPurchaseButton
-                href={`/purchase/${post.id}`}
+                href={`/purchase/${post.data.id}`}
                 label={text.buy}
-                statusKey={post.statusKey}
+                statusKey="available"
               />
             </div>
-          ) : null}
+          )}
 
-          {/* 족보경매장 글일 때만 현재가, 입찰수, 마감 시간, 입찰 버튼을 보여줍니다. */}
-          {post.currentBid ? (
+          {isAuction && post.type === "examAuction" && (
             <BidPanel
               bidLabel={text.bid}
               bidsLabel={text.bids}
-              currentBid={post.currentBid}
+              currentBid={formatWon(post.data.current_price)}
               currentBidLabel={text.currentBid}
-              endsIn={post.endsIn ?? ""}
+              endsIn={getEndsIn(post.data.deadline)}
               endsInLabel={text.endsIn}
-              initialBids={post.bids}
+              initialBids={post.data.bids.length}
+              postId={post.data.id}
             />
-          ) : null}
+          )}
 
-          {/* 본문 하단에는 좋아요/댓글 수와 목록 이동 버튼을 같은 줄에 배치합니다. */}
           <div className="flex flex-wrap items-center gap-2 border-t border-[#eeeeee] pt-4 text-sm font-bold text-[#777777]">
-            {!isReviewPost ? (
+            {!isReview && (
               <PostCounterButton
-                initialCount={post.likes}
+                initialCount={
+                  post.type === "free" ? post.data.like_count :
+                  post.type === "market" ? post.data.like_count :
+                  post.type === "examAuction" ? post.data.like_count : 0
+                }
                 label={text.likes}
                 tone="red"
+                onToggle={
+                  post.type === "free" ? () => toggleFreePostLike(post.data.id) :
+                  post.type === "market" ? () => toggleMarketPostLike(post.data.id) :
+                  post.type === "examAuction" ? () => toggleAuctionPostLike(post.data.id) :
+                  undefined
+                }
               />
-            ) : null}
-            {canWriteComments ? (
+            )}
+            {!isReview && (
               <span className="inline-flex h-8 items-center px-1">
-                {text.comments} {post.comments}
+                {text.comments} {post.type === "free" ? post.data.comment_count : 0}
               </span>
-            ) : null}
-            {/* 게시글이 속한 게시판을 기준으로 목록으로 돌아갈 경로를 결정합니다. */}
+            )}
             <Link
               className="ml-auto inline-flex h-8 items-center rounded-md border border-[#dedede] bg-white px-4 text-sm font-bold text-[#555555] hover:bg-[#fafafa]"
-              href={
-                post.boardKey === "free"
-                  ? "/free"
-                  : post.boardKey === "market"
-                    ? "/market"
-                    : post.boardKey === "examAuction"
-                      ? "/exam-auction"
-                      : "/reviews"
-              }
+              href={boardMeta.backHref}
             >
               {text.back}
             </Link>
           </div>
         </section>
-        {canWriteComments ? (
-          <CommentSection initialCount={post.comments} postAuthor={post.author} />
-        ) : null}
+
+        {post.type === "free" && (
+          <CommentSection
+            initialCount={post.data.comment_count}
+            postAuthor={post.data.author_name}
+            postId={post.data.id}
+          />
+        )}
       </article>
     </main>
   );
 }
 
-function ReviewMetricSummary({ entries }: { entries: ReviewEntry[] }) {
-  const averageRating = getAverageRating(entries);
-  const ratingPercent = getRatingPercent(entries);
-
+function ReviewDetailCard({ data }: { data: ReviewPostResponse }) {
   return (
-    <section className="grid gap-3 rounded-md border border-[#eeeeee] bg-[#fafafa] p-4 sm:grid-cols-2">
-      <ReviewPercentCard
-        label={text.rating}
-        rows={[
-          {
-            label: `${averageRating.toFixed(1)}점`,
-            percent: ratingPercent,
-          },
-        ]}
-      />
-      <ReviewPercentCard
-        label={text.assignment}
-        rows={getOptionPercent(
-          entries,
-          assignmentOptions,
-          (entry) => entry.assignmentLoad,
-        )}
-      />
-      <ReviewPercentCard
-        label={text.teamProject}
-        rows={getOptionPercent(
-          entries,
-          teamProjectOptions,
-          (entry) => entry.teamProjectLoad,
-        )}
-      />
-      <ReviewPercentCard
-        label={text.grading}
-        rows={getOptionPercent(
-          entries,
-          gradingOptions,
-          (entry) => entry.gradingStyle,
-        )}
-      />
-    </section>
-  );
-}
-
-function ReviewPercentCard({
-  label,
-  rows,
-}: {
-  label: string;
-  rows: Array<{ label: string; percent: number }>;
-}) {
-  return (
-    <div className="rounded-md border border-[#eeeeee] bg-white p-3">
-      <h2 className="text-sm font-black text-[#333333]">{label}</h2>
-      <div className="mt-3 space-y-2">
-        {rows.map((row) => (
-          <div className="grid grid-cols-[72px_1fr_44px] items-center gap-2" key={row.label}>
-            <span className="text-xs font-bold text-[#666666]">{row.label}</span>
-            <div className="h-2 overflow-hidden rounded-full bg-[#eeeeee]">
-              <div
-                className="h-full rounded-full bg-[#c62917]"
-                style={{ width: `${row.percent}%` }}
-              />
-            </div>
-            <span className="text-right text-xs font-black text-[#c62917]">
-              {row.percent}%
-            </span>
-          </div>
-        ))}
+    <div className="grid gap-3 rounded-md border border-[#eeeeee] bg-[#fafafa] p-4 sm:grid-cols-3">
+      <div className="rounded-md border border-[#eeeeee] bg-white p-3">
+        <h2 className="text-sm font-black text-[#333333]">{text.assignment}</h2>
+        <p className="mt-2 text-sm font-bold text-[#c62917]">
+          {ASSIGNMENT_LABEL[data.assignment_level] ?? data.assignment_level}
+        </p>
+      </div>
+      <div className="rounded-md border border-[#eeeeee] bg-white p-3">
+        <h2 className="text-sm font-black text-[#333333]">{text.teamProject}</h2>
+        <p className="mt-2 text-sm font-bold text-[#c62917]">
+          {TEAM_LABEL[data.team_project_load] ?? data.team_project_load}
+        </p>
+      </div>
+      <div className="rounded-md border border-[#eeeeee] bg-white p-3">
+        <h2 className="text-sm font-black text-[#333333]">{text.grading}</h2>
+        <p className="mt-2 text-sm font-bold text-[#c62917]">
+          {GRADING_LABEL[data.grading_style] ?? data.grading_style}
+        </p>
       </div>
     </div>
   );

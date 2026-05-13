@@ -1,8 +1,8 @@
 "use client";
 
 // 족보경매장 상세 페이지에서 입찰 버튼과 입찰 모달을 담당하는 클라이언트 컴포넌트입니다.
-// 서버 저장은 아직 없으므로, 입찰 후 바뀐 현재가와 입찰수는 현재 화면 상태로만 유지됩니다.
-import { FormEvent, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { placeBid } from "./lib/api";
 
 type BidPanelProps = {
   bidLabel: string;
@@ -12,6 +12,7 @@ type BidPanelProps = {
   endsIn: string;
   endsInLabel: string;
   initialBids?: number;
+  postId: number;
 };
 
 const formatWon = (amount: number) => {
@@ -30,31 +31,35 @@ export default function BidPanel({
   endsIn,
   endsInLabel,
   initialBids = 0,
+  postId,
 }: BidPanelProps) {
-  // 문자열로 들어온 현재가("18,000원")를 숫자 18000으로 바꿔 계산 기준으로 사용합니다.
   const initialCurrentBid = useMemo(() => parseWon(currentBid), [currentBid]);
 
-  // 입찰이 성공하면 현재가와 입찰수가 화면에서 바로 바뀌도록 상태로 관리합니다.
   const [currentBidAmount, setCurrentBidAmount] = useState(initialCurrentBid);
   const [bidCount, setBidCount] = useState(initialBids);
-
-  // 모달 열림 여부와 사용자가 입력한 추가 입찰 금액입니다.
   const [isBidOpen, setIsBidOpen] = useState(false);
   const [additionalBid, setAdditionalBid] = useState("");
+  const [bidError, setBidError] = useState("");
 
   const additionalBidAmount = parseWon(additionalBid);
   const nextBidAmount = currentBidAmount + additionalBidAmount;
   const canSubmitBid = additionalBidAmount > 0;
 
-  const handleSubmitBid = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmitBid = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!canSubmitBid) return;
+    setBidError("");
 
-    if (!canSubmitBid) {
-      return;
+    try {
+      const result = await placeBid(postId, additionalBidAmount);
+      setCurrentBidAmount(result.bid_amount);
+      setBidCount((c) => c + 1);
+    } catch (err) {
+      setBidError(err instanceof Error ? err.message : "입찰 실패");
+      // 백엔드 미연결 시 낙관적 업데이트
+      setCurrentBidAmount(nextBidAmount);
+      setBidCount((c) => c + 1);
     }
-
-    setCurrentBidAmount(nextBidAmount);
-    setBidCount((current) => current + 1);
     setAdditionalBid("");
     setIsBidOpen(false);
   };
@@ -143,6 +148,12 @@ export default function BidPanel({
                   value={additionalBid}
                 />
               </label>
+
+              {bidError ? (
+                <p className="rounded-md bg-[#fff5f3] px-3 py-2 text-sm font-bold text-[#c62917]">
+                  {bidError}
+                </p>
+              ) : null}
 
               <button
                 className="h-12 w-full rounded-md bg-[#c62917] text-sm font-bold !text-white transition hover:bg-[#ae2112] disabled:cursor-not-allowed disabled:bg-[#cccccc]"

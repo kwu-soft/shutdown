@@ -2,14 +2,14 @@
 
 // 마이페이지의 탭 UI와 localStorage 기반 개인 정보/계좌 정보 관리를 담당합니다.
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   authStorageKey,
   nicknameByEmailStorageKey,
   nicknameStorageKey,
   userProfileStorageKey,
 } from "../auth-link";
-import { notifyLocalStorageChanged, safeJsonParse } from "../storage";
+import { localStorageChangedEvent, notifyLocalStorageChanged, safeJsonParse } from "../storage";
 
 type ActiveTab = "profile" | "account";
 
@@ -74,6 +74,20 @@ export default function MyPageClient() {
   const [profile, setProfile] = useState<UserProfile>(getStoredProfile);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState<UserProfile>(getStoredProfile);
+
+  useEffect(() => {
+    const refresh = () => {
+      const next = getStoredProfile();
+      setProfile(next);
+      setProfileForm(next);
+    };
+    window.addEventListener("storage", refresh);
+    window.addEventListener(localStorageChangedEvent, refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener(localStorageChangedEvent, refresh);
+    };
+  }, []);
   const [accountInfo, setAccountInfo] =
     useState<AccountInfo>(getStoredAccountInfo);
   const [bankName, setBankName] = useState(() => getStoredAccountInfo().bankName);

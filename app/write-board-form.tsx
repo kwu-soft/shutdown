@@ -3,18 +3,20 @@
 // 자유게시판, 장터게시판, 족보경매장, 강의평게시판의 글쓰기 화면을 하나의 폼 컴포넌트로 처리합니다.
 // 게시판마다 필요한 추가 입력값이 다르기 때문에 boardType 값에 따라 필드를 조건부로 보여줍니다.
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import type {
-  AssignmentLoad,
-  GradingStyle,
-  StoredReviewPost,
-  TeamProjectLoad,
-} from "./community-data";
-import {
-  notifyLocalStorageChanged,
-  safeJsonParse,
-  submittedReviewsStorageKey,
-} from "./storage";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import type { AssignmentLoad, GradingStyle, TeamProjectLoad } from "./community-data";
+import { createAuctionPost, createFreePost, createMarketPost, createReview } from "./lib/api";
+
+const ASSIGNMENT_API_MAP: Record<AssignmentLoad, string> = {
+  "많음": "many", "보통": "normal", "적음": "few", "없음": "none",
+};
+const GRADING_API_MAP: Record<GradingStyle, string> = {
+  "너그러움": "generous", "보통": "normal", "깐깐함": "strict",
+};
+const SEMESTER_API_MAP: Record<string, string> = {
+  "1학기": "1", "2학기": "2", "여름학기": "summer", "겨울학기": "winter",
+};
 
 type WriteBoardType = "free" | "market" | "examAuction" | "reviews";
 
@@ -122,40 +124,57 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
   // 사진은 파일 자체를 업로드하지 않고, 현재 선택된 파일 이름을 미리보기용으로 보여줍니다.
   const [photoNames, setPhotoNames] = useState<string[]>([]);
 
+  const router = useRouter();
+  const [submitError, setSubmitError] = useState("");
   const authorName = isAnonymous ? "익명" : defaultNickname;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setSubmitError("");
 
-    if (isReview) {
-      const savedReviews = safeJsonParse<StoredReviewPost[]>(
-        window.localStorage.getItem(submittedReviewsStorageKey),
-        [],
-      );
-      const now = new Date();
-      const nextReview: StoredReviewPost = {
-        assignmentLoad,
-        content,
-        courseName,
-        courseSemester,
-        courseYear,
-        createdAt: now.toISOString(),
-        gradingStyle,
-        id: now.getTime(),
-        professor: professorName,
-        rating,
-        teamProjectLoad,
-        time: "방금",
-      };
+    try {
+      if (isReview) {
+        await createReview({
+          title: courseName,
+          content,
+          course_name: courseName,
+          professor_name: professorName,
+          assignment_level: ASSIGNMENT_API_MAP[assignmentLoad] as "many" | "normal" | "few" | "none",
+          team_project_load: ASSIGNMENT_API_MAP[teamProjectLoad] as "many" | "normal" | "few" | "none",
+          grading_style: GRADING_API_MAP[gradingStyle] as "generous" | "normal" | "strict",
+          rating: Number(rating),
+          year: Number(courseYear),
+          semester: SEMESTER_API_MAP[courseSemester] as "1" | "2" | "summer" | "winter",
+        });
+        router.push("/reviews");
+        return;
+      }
 
-      window.localStorage.setItem(
-        submittedReviewsStorageKey,
-        JSON.stringify([nextReview, ...savedReviews]),
-      );
-      notifyLocalStorageChanged();
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("content", content);
+      formData.append("is_anonymous", String(isAnonymous));
+
+      if (isMarket) {
+        const priceNum = Number(price.replace(/[^0-9]/g, ""));
+        formData.append("price", String(priceNum));
+        await createMarketPost(formData);
+        router.push("/market");
+      } else if (isExamAuction) {
+        formData.append("course_name", courseName);
+        formData.append("professor_name", professorName);
+        formData.append("starting_price", String(Number(startPrice.replace(/[^0-9]/g, ""))));
+        formData.append("deadline", new Date(auctionEndTime).toISOString());
+        await createAuctionPost(formData);
+        router.push("/exam-auction");
+      } else {
+        await createFreePost(formData);
+        router.push("/free");
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "게시글 등록 실패. 로그인 상태를 확인하세요.");
+      setIsSubmitted(true);
     }
-
-    setIsSubmitted(true);
   };
 
   return (
@@ -478,6 +497,12 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
               {settings.submitLabel}
             </button>
           </div>
+
+          {submitError ? (
+            <p className="mt-3 rounded-md bg-[#fff5f3] px-3 py-2 text-sm font-bold text-[#c62917]">
+              {submitError}
+            </p>
+          ) : null}
         </form>
 
         {/* 제출 후에는 게시판에 반영될 내용을 한 번 더 확인할 수 있게 보여줍니다. */}

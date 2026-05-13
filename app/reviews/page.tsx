@@ -1,22 +1,69 @@
-import CommunityBoard from "../community-board";
-import { groupedReviewPosts } from "../community-data";
+"use client";
 
-// 강의평게시판 경로에서 강의평 데이터를 공통 게시판 UI에 전달합니다.
-// 이 파일은 /reviews URL에 대응하는 페이지입니다.
-const reviewText = {
-  description:
-    "강의평게시판의 최신 강의평을 순서대로 보여줍니다.",
-  title: "강의평게시판",
+import { useEffect, useState } from "react";
+import CommunityBoard from "../community-board";
+import { groupedReviewPosts, type CommunityPost } from "../community-data";
+import { getReviews, type ReviewPostResponse } from "../lib/api";
+
+const ASSIGNMENT_MAP: Record<string, string> = {
+  many: "많음", normal: "보통", few: "적음", none: "없음",
+};
+const GRADING_MAP: Record<string, string> = {
+  generous: "너그러움", normal: "보통", strict: "깐깐함",
+};
+const SEMESTER_MAP: Record<string, string> = {
+  "1": "1학기", "2": "2학기", summer: "여름학기", winter: "겨울학기",
 };
 
+function toRelativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "방금";
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  return `${Math.floor(hr / 24)}일 전`;
+}
+
+function toPost(p: ReviewPostResponse): CommunityPost {
+  return {
+    id: p.id,
+    boardKey: "reviews",
+    board: "강의평게시판",
+    title: p.course_name,
+    preview: p.content.slice(0, 100),
+    createdAt: p.created_at,
+    time: toRelativeTime(p.created_at),
+    comments: 0,
+    likes: p.like_count,
+    author: p.author_name,
+    authorRecommendations: 0,
+    rating: String(p.rating),
+    courseName: p.course_name,
+    courseYear: String(p.year),
+    courseSemester: SEMESTER_MAP[p.semester] ?? p.semester,
+    professor: p.professor_name,
+    assignmentLoad: (ASSIGNMENT_MAP[p.assignment_level] ?? "보통") as CommunityPost["assignmentLoad"],
+    teamProjectLoad: (ASSIGNMENT_MAP[p.team_project_load] ?? "보통") as CommunityPost["teamProjectLoad"],
+    gradingStyle: (GRADING_MAP[p.grading_style] ?? "보통") as CommunityPost["gradingStyle"],
+  };
+}
+
 export default function ReviewBoardPage() {
+  const [posts, setPosts] = useState<CommunityPost[]>(groupedReviewPosts);
+
+  useEffect(() => {
+    getReviews()
+      .then((data) => setPosts(data.posts.map(toPost)))
+      .catch(() => {});
+  }, []);
+
   return (
-    // 강의평 데이터에는 평점과 교수명이 포함되어 목록과 상세 페이지에서 조건부로 보입니다.
     <CommunityBoard
       activeBoard="reviews"
-      description={reviewText.description}
-      posts={groupedReviewPosts}
-      title={reviewText.title}
+      description="강의평게시판의 최신 강의평을 순서대로 보여줍니다."
+      posts={posts}
+      title="강의평게시판"
     />
   );
 }

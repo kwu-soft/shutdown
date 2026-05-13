@@ -1,71 +1,51 @@
 "use client";
 
-// 자유/장터/족보 게시글 상세 페이지에서 댓글을 작성하고 목록으로 보여주는 컴포넌트입니다.
-import { FormEvent, useState } from "react";
-import { authStorageKey, nicknameStorageKey } from "./auth-link";
+import { useEffect, useState } from "react";
+import { nicknameStorageKey } from "./auth-link";
+import { createFreeComment, getFreeComments } from "./lib/api";
 
 type CommentSectionProps = {
   initialCount: number;
   postAuthor: string;
+  postId: number;
 };
 
 type CommentItem = {
   author: string;
-  authorKey: string;
   content: string;
   id: number;
-  isAnonymous: boolean;
 };
 
-export default function CommentSection({
-  initialCount,
-  postAuthor,
-}: CommentSectionProps) {
+export default function CommentSection({ initialCount, postAuthor, postId }: CommentSectionProps) {
   const [content, setContent] = useState("");
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [isAnonymous, setIsAnonymous] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    getFreeComments(postId)
+      .then((data) =>
+        setComments(data.map((c) => ({ id: c.id, author: c.author_name, content: c.content })))
+      )
+      .catch(() => {});
+  }, [postId]);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const trimmed = content.trim();
+    if (!trimmed) return;
 
-    const nextContent = content.trim();
-    const nickname = window.localStorage.getItem(nicknameStorageKey) || "사용자";
-    const userId = window.localStorage.getItem(authStorageKey) || "guest";
-
-    if (!nextContent) {
-      return;
+    try {
+      const c = await createFreeComment(postId, trimmed, isAnonymous);
+      setComments((prev) => [...prev, { id: c.id, author: c.author_name, content: c.content }]);
+      setContent("");
+    } catch {
+      const nickname = window.localStorage.getItem(nicknameStorageKey) || "사용자";
+      setComments((prev) => [
+        ...prev,
+        { id: Date.now(), author: isAnonymous ? "익명" : nickname, content: trimmed },
+      ]);
+      setContent("");
     }
-
-    setComments((current) => {
-      const existingAnonymousComment = current.find(
-        (comment) => comment.isAnonymous && comment.authorKey === userId,
-      );
-      const anonymousAuthor =
-        existingAnonymousComment?.author ??
-        `익명${
-          new Set(
-            current
-              .filter((comment) => comment.isAnonymous)
-              .map((comment) => comment.authorKey),
-          ).size + 1
-        }`;
-
-      return [
-        ...current,
-        {
-          author: isAnonymous
-            ? anonymousAuthor
-            : nickname === postAuthor
-              ? "작성자"
-              : nickname,
-          authorKey: userId,
-          content: nextContent,
-          id: Date.now(),
-          isAnonymous,
-        },
-      ];
-    });
-    setContent("");
   };
 
   return (
@@ -79,7 +59,7 @@ export default function CommentSection({
       <form className="flex flex-wrap gap-2" onSubmit={handleSubmit}>
         <input
           className="h-11 min-w-0 flex-1 rounded-md border border-[#d9d9d9] px-3 text-sm outline-none placeholder:text-[#aaaaaa] focus:border-[#c62917] focus:ring-2 focus:ring-[#c62917]/10"
-          onChange={(event) => setContent(event.target.value)}
+          onChange={(e) => setContent(e.target.value)}
           placeholder="댓글을 입력하세요"
           value={content}
         />
@@ -87,7 +67,7 @@ export default function CommentSection({
           <input
             checked={isAnonymous}
             className="h-4 w-4 accent-[#c62917]"
-            onChange={(event) => setIsAnonymous(event.target.checked)}
+            onChange={(e) => setIsAnonymous(e.target.checked)}
             type="checkbox"
           />
           익명
@@ -104,13 +84,7 @@ export default function CommentSection({
         <ol className="mt-4 divide-y divide-[#eeeeee] rounded-md border border-[#eeeeee]">
           {comments.map((comment) => (
             <li className="px-4 py-3 text-sm leading-6 text-[#333333]" key={comment.id}>
-              <p
-                className={`mb-1 text-xs font-black ${
-                  comment.author === "작성자"
-                    ? "text-[#2563eb]"
-                    : "text-[#c62917]"
-                }`}
-              >
+              <p className={`mb-1 text-xs font-black ${comment.author === postAuthor ? "text-[#2563eb]" : "text-[#c62917]"}`}>
                 {comment.author}
               </p>
               <p>{comment.content}</p>

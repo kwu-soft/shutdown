@@ -19,6 +19,7 @@ import {
   safeJsonParse,
   submittedReviewsStorageKey,
 } from "./storage";
+import { toggleFreePostLike, toggleMarketPostLike, toggleAuctionPostLike } from "./lib/api";
 
 type CommunityBoardProps = {
   // 현재 열려 있는 게시판을 표시하기 위한 키입니다.
@@ -392,7 +393,7 @@ export default function CommunityBoard({
                 <Link
                   aria-label={`${post.title} ${ui.openPost}`}
                   className="flex items-start justify-between gap-4"
-                  href={`/posts/${post.id}`}
+                  href={`/posts/${post.id}?board=${post.boardKey}`}
                 >
                   <div className="min-w-0">
                     <h3 className="line-clamp-1 text-[15px] font-bold text-[#202020]">
@@ -445,9 +446,12 @@ export default function CommunityBoard({
                 {/* 하단 액션 영역: 좋아요/댓글 수와 추천 버튼을 함께 배치합니다. */}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#888888]">
                   {post.boardKey !== "reviews" ? (
-                    <span className="inline-flex h-8 items-center px-1 text-[#c62917]">
-                      {ui.likes} {post.likes}
-                    </span>
+                    <LikeButton
+                      boardKey={post.boardKey}
+                      initialCount={post.likes}
+                      label={ui.likes}
+                      postId={post.id}
+                    />
                   ) : null}
                   {post.boardKey !== "reviews" ? (
                     <span className="inline-flex h-8 items-center px-1">
@@ -495,5 +499,59 @@ export default function CommunityBoard({
         </aside>
       </div>
     </main>
+  );
+}
+
+function LikeButton({
+  boardKey,
+  postId,
+  initialCount,
+  label,
+}: {
+  boardKey: string;
+  postId: number;
+  initialCount: number;
+  label: string;
+}) {
+  const [count, setCount] = useState(initialCount);
+  const [liked, setLiked] = useState(false);
+
+  const canToggle = boardKey === "free" || boardKey === "market" || boardKey === "examAuction";
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const result =
+        boardKey === "free"
+          ? await toggleFreePostLike(postId)
+          : boardKey === "market"
+          ? await toggleMarketPostLike(postId)
+          : await toggleAuctionPostLike(postId);
+      setCount(result.like_count);
+      setLiked(result.liked);
+    } catch {
+      // 로그인 필요 또는 네트워크 오류
+    }
+  };
+
+  if (!canToggle) {
+    return (
+      <span className="inline-flex h-8 items-center px-1 text-[#c62917]">
+        {label} {count}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      className={`inline-flex h-8 items-center px-1 transition ${
+        liked ? "font-bold text-[#c62917]" : "text-[#c62917] hover:opacity-70"
+      }`}
+      onClick={handleClick}
+      type="button"
+    >
+      {label} {count}
+    </button>
   );
 }

@@ -1,22 +1,51 @@
-import CommunityBoard from "../community-board";
-import { freePosts } from "../community-data";
+"use client";
 
-// 자유게시판 경로에서 자유게시판 데이터만 공통 게시판 UI에 전달합니다.
-// 이 파일은 /free URL에 대응하는 페이지입니다.
-const freeText = {
-  description:
-    "자유게시판의 최신 게시글을 순서대로 보여줍니다.",
-  title: "자유게시판",
-};
+import { useEffect, useState } from "react";
+import CommunityBoard from "../community-board";
+import { freePosts, type CommunityPost } from "../community-data";
+import { getFreePosts, type FreePostResponse } from "../lib/api";
+
+function toRelativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "방금";
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  return `${Math.floor(hr / 24)}일 전`;
+}
+
+function toPost(p: FreePostResponse): CommunityPost {
+  return {
+    id: p.id,
+    boardKey: "free",
+    board: "자유게시판",
+    title: p.title,
+    preview: p.content.slice(0, 100),
+    createdAt: p.created_at,
+    time: toRelativeTime(p.created_at),
+    comments: p.comment_count,
+    likes: p.like_count,
+    author: p.author_name,
+    authorRecommendations: 0,
+  };
+}
 
 export default function FreeBoardPage() {
+  const [posts, setPosts] = useState<CommunityPost[]>(freePosts);
+
+  useEffect(() => {
+    getFreePosts()
+      .then((data) => setPosts(data.posts.map(toPost)))
+      .catch(() => {/* 백엔드 미연결 시 더미 데이터 유지 */});
+  }, []);
+
   return (
-    // CommunityBoard는 화면 틀을 담당하고, 이 페이지는 어떤 데이터와 제목을 쓸지만 정합니다.
     <CommunityBoard
       activeBoard="free"
-      description={freeText.description}
-      posts={freePosts}
-      title={freeText.title}
+      description="자유게시판의 최신 게시글을 순서대로 보여줍니다."
+      posts={posts}
+      title="자유게시판"
     />
   );
 }

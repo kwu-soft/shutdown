@@ -10,7 +10,9 @@ from app.models.user import User
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("JWT_SECRET")
+# 현재 상황: 개발용 SQLite 환경에서는 .env 없이 실행할 수 있습니다.
+# 목적: auth.py에서 발급한 로컬 테스트용 JWT를 같은 키로 검증합니다.
+SECRET_KEY = os.getenv("JWT_SECRET", "dev-only-secret-key")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 # 현재 상황: Authorization: Bearer <token> 헤더에서 JWT를 꺼내기 위한 보안 스키마입니다.

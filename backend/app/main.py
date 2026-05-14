@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import os
 
 from app.database import engine, Base
 from app.models import user, free_board, market_board, auction_board, review_board  # noqa: F401
@@ -24,6 +25,7 @@ app.add_middleware(
 
 # 현재 상황: 게시글 작성 시 업로드한 이미지 파일을 /uploads 경로로 접근할 수 있게 공개합니다.
 # 목적: DB에는 이미지 경로만 저장하고, 실제 파일은 서버의 uploads 폴더에서 제공합니다.
+os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # 현재 상황: 기능별 라우터를 FastAPI 앱에 연결합니다.

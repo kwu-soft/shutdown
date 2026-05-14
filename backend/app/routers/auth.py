@@ -12,7 +12,9 @@ from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("JWT_SECRET")
+# 현재 상황: 개발용 SQLite 환경에서는 .env 없이 실행할 수 있습니다.
+# 목적: JWT_SECRET이 없어도 로컬 테스트용 토큰 발급은 가능하게 합니다.
+SECRET_KEY = os.getenv("JWT_SECRET", "dev-only-secret-key")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", 60))
 

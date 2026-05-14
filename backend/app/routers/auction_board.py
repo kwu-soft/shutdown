@@ -18,12 +18,16 @@ router = APIRouter(prefix="/auction", tags=["족보경매장"])
 
 
 def get_current_price(post: AuctionPost) -> int:
+    # 현재 상황: 경매글의 현재가는 입찰 내역이 없으면 시작가, 있으면 최고 입찰가입니다.
+    # 목적: 목록/상세/새 입찰 계산에서 같은 기준으로 현재가를 사용합니다.
     if not post.bids:
         return post.starting_price
     return max(b.bid_amount for b in post.bids)
 
 
 def post_to_response(post: AuctionPost) -> AuctionPostResponse:
+    # 현재 상황: 경매 DB 모델을 화면용 응답 데이터로 변환합니다.
+    # 목적: 현재가, 마감 여부, 최신순 입찰 내역까지 한 번에 계산합니다.
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     return AuctionPostResponse(
         id=post.id,
@@ -53,6 +57,8 @@ def post_to_response(post: AuctionPost) -> AuctionPostResponse:
     )
 
 
+# 현재 상황: 족보 경매글 목록을 최신순으로 페이지 단위 조회합니다.
+# 목적: 경매 리스트 화면에 현재가와 마감 상태를 함께 제공합니다.
 @router.get("", response_model=AuctionPostListResponse)
 def list_posts(
     page: int = Query(1, ge=1),
@@ -76,6 +82,8 @@ def list_posts(
     )
 
 
+# 현재 상황: 로그인한 사용자가 새 경매글을 작성합니다.
+# 목적: 마감 시간이 현재보다 미래인지 검증하고 경매 정보를 저장합니다.
 @router.post("", response_model=AuctionPostResponse, status_code=201)
 async def create_post(
     title: str = Form(...),
@@ -112,6 +120,8 @@ async def create_post(
     return post_to_response(post)
 
 
+# 현재 상황: 특정 경매글 상세 정보를 조회합니다.
+# 목적: 입찰 내역, 현재가, 마감 여부를 상세 페이지에 제공합니다.
 @router.get("/{post_id}", response_model=AuctionPostResponse)
 def get_post(post_id: int, db: Session = Depends(get_db)):
     post = db.query(AuctionPost).filter(AuctionPost.id == post_id).first()
@@ -120,6 +130,8 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
     return post_to_response(post)
 
 
+# 현재 상황: 로그인한 작성자가 마감 전 경매글을 수정합니다.
+# 목적: 작성자 권한과 마감 여부를 확인한 뒤 제목/내용/이미지를 갱신합니다.
 @router.put("/{post_id}", response_model=AuctionPostResponse)
 async def update_post(
     post_id: int,
@@ -153,6 +165,8 @@ async def update_post(
     return post_to_response(post)
 
 
+# 현재 상황: 로그인한 작성자가 본인 경매글을 삭제합니다.
+# 목적: DB 게시글, 입찰/좋아요 관계, 업로드 이미지를 정리합니다.
 @router.delete("/{post_id}", status_code=204)
 def delete_post(
     post_id: int,
@@ -170,6 +184,8 @@ def delete_post(
     db.commit()
 
 
+# 현재 상황: 로그인한 사용자가 경매글에 추가 금액을 입찰합니다.
+# 목적: 마감 여부, 본인 글 여부, 양수 금액 여부를 검증한 뒤 새 최고가를 저장합니다.
 @router.post("/{post_id}/bid", response_model=AuctionBidResponse, status_code=201)
 def place_bid(
     post_id: int,
@@ -206,6 +222,8 @@ def place_bid(
     )
 
 
+# 현재 상황: 로그인한 사용자가 경매글 좋아요를 누르거나 취소합니다.
+# 목적: 관심 경매 상태와 최신 좋아요 수를 반환합니다.
 @router.post("/{post_id}/like", response_model=LikeResponse)
 def toggle_post_like(
     post_id: int,

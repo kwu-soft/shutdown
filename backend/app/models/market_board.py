@@ -4,6 +4,8 @@ from app.database import Base
 
 
 class MarketPost(Base):
+    # 현재 상황: 장터게시판의 판매글 정보를 저장합니다.
+    # 목적: 제목/내용/가격/이미지/작성자를 DB에 남겨 중고거래 게시판 화면에 제공합니다.
     __tablename__ = "market_posts"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -21,6 +23,8 @@ class MarketPost(Base):
 
 
 class MarketPostLike(Base):
+    # 현재 상황: 사용자가 장터 게시글에 좋아요를 눌렀는지 저장합니다.
+    # 목적: 같은 사용자가 같은 판매글에 중복 좋아요를 누르지 않도록 제한합니다.
     __tablename__ = "market_post_likes"
 
     id = Column(Integer, primary_key=True, index=True)

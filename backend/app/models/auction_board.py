@@ -4,6 +4,8 @@ from app.database import Base
 
 
 class AuctionPost(Base):
+    # 현재 상황: 족보 경매 게시글의 기본 정보와 마감 시간을 저장합니다.
+    # 목적: 시작가, 현재 입찰 목록, 마감 여부를 계산해 경매 화면에 제공합니다.
     __tablename__ = "auction_posts"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -24,6 +26,8 @@ class AuctionPost(Base):
 
 
 class AuctionBid(Base):
+    # 현재 상황: 특정 경매글에 사용자가 제시한 입찰 금액을 누적 저장합니다.
+    # 목적: 최신 최고가 계산과 입찰 내역 표시의 기준 데이터로 사용합니다.
     __tablename__ = "auction_bids"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -37,6 +41,8 @@ class AuctionBid(Base):
 
 
 class AuctionPostLike(Base):
+    # 현재 상황: 사용자가 경매 게시글에 좋아요를 눌렀는지 저장합니다.
+    # 목적: 경매글 관심도를 표시하고 중복 좋아요를 막습니다.
     __tablename__ = "auction_post_likes"
 
     id = Column(Integer, primary_key=True, index=True)

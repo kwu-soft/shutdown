@@ -5,6 +5,8 @@ import enum
 
 
 class AssignmentLevel(str, enum.Enum):
+    # 현재 상황: 강의평에서 과제량을 정해진 값 중 하나로 저장합니다.
+    # 목적: 프론트가 필터/표시를 안정적으로 처리할 수 있게 문자열 값을 제한합니다.
     many = "many"
     normal = "normal"
     few = "few"
@@ -12,6 +14,8 @@ class AssignmentLevel(str, enum.Enum):
 
 
 class Semester(str, enum.Enum):
+    # 현재 상황: 수강 학기를 1학기, 2학기, 여름, 겨울 중 하나로 저장합니다.
+    # 목적: 강의평 데이터의 학기 표기를 통일합니다.
     first = "1"
     second = "2"
     summer = "summer"
@@ -19,12 +23,16 @@ class Semester(str, enum.Enum):
 
 
 class GradingStyle(str, enum.Enum):
+    # 현재 상황: 학점 부여 성향을 후함/보통/엄격으로 구분합니다.
+    # 목적: 강의 선택 시 사용자가 평가 방식을 빠르게 비교할 수 있게 합니다.
     generous = "generous"
     normal = "normal"
     strict = "strict"
 
 
 class TeamProjectLoad(str, enum.Enum):
+    # 현재 상황: 팀플 부담 정도를 정해진 값으로 저장합니다.
+    # 목적: 과제량과 별도로 팀프로젝트 부담을 비교할 수 있게 합니다.
     many = "many"
     normal = "normal"
     few = "few"
@@ -32,6 +40,8 @@ class TeamProjectLoad(str, enum.Enum):
 
 
 class ReviewPost(Base):
+    # 현재 상황: 강의평 게시판의 후기 본문과 강의 메타데이터를 저장합니다.
+    # 목적: 과목명/교수명 검색, 별점, 과제량, 학점 스타일 정보를 제공하는 핵심 테이블입니다.
     __tablename__ = "review_posts"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -54,6 +64,8 @@ class ReviewPost(Base):
 
 
 class ReviewPostLike(Base):
+    # 현재 상황: 사용자가 강의평 게시글에 좋아요를 눌렀는지 기록합니다.
+    # 목적: 한 사용자당 한 강의평에 하나의 좋아요만 허용하고 좋아요 수를 계산합니다.
     __tablename__ = "review_post_likes"
     __table_args__ = (UniqueConstraint("user_id", "post_id"),)
 

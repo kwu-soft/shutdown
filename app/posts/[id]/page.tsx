@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { authStorageKey } from "../../auth-link";
 import BidPanel from "../../bid-panel";
 import CommentSection from "../../comment-section";
+import { allPosts, type CommunityPost } from "../../community-data";
 import MarketPurchaseButton from "../../market-purchase-button";
 import PostCounterButton from "../../post-counter-button";
 import ReportAuthorButton from "../../report-author-button";
@@ -93,6 +95,102 @@ type PostState =
   | { type: "examAuction"; data: AuctionPostResponse }
   | { type: "reviews"; data: ReviewPostResponse };
 
+function parseWon(value: string | undefined): number {
+  return Number(value?.replace(/[^\d]/g, "") || 0);
+}
+
+function getFallbackPost(id: number, board: BoardKey): PostState | null {
+  // 현재 상황: 백엔드 DB에는 없지만 프론트 샘플 데이터에는 존재하는 게시글이 있습니다.
+  // 목적: 상세 조회 API가 실패해도 기존 샘플/묶음 게시글은 상세 화면에서 계속 볼 수 있게 합니다.
+  const localPost = allPosts.find(
+    (candidate) => candidate.id === id && candidate.boardKey === board,
+  );
+
+  if (!localPost) {
+    return null;
+  }
+
+  return mapLocalPostToDetail(localPost, board);
+}
+
+function mapLocalPostToDetail(post: CommunityPost, board: BoardKey): PostState {
+  const base = {
+    id: post.id,
+    title: post.title,
+    content: post.reviewEntries?.map((entry) => entry.content).join("\n\n") ?? post.preview,
+    author_id: 0,
+    author_name: post.author,
+    created_at: post.createdAt,
+    like_count: post.likes,
+  };
+
+  if (board === "market") {
+    return {
+      type: "market",
+      data: {
+        ...base,
+        price: parseWon(post.price),
+        image_path: null,
+        is_anonymous: false,
+        updated_at: post.createdAt,
+      },
+    };
+  }
+
+  if (board === "examAuction") {
+    const currentPrice = parseWon(post.currentBid);
+    return {
+      type: "examAuction",
+      data: {
+        ...base,
+        course_name: post.courseName ?? post.title,
+        professor_name: post.professor ?? "",
+        starting_price: currentPrice,
+        current_price: currentPrice,
+        deadline: post.endsAt ?? post.createdAt,
+        image_path: null,
+        is_anonymous: false,
+        is_ended: Boolean(post.isAwarded),
+        bids: Array.from({ length: post.bids ?? 0 }, (_, index) => ({
+          id: index + 1,
+          bid_amount: currentPrice,
+          bidder_name: "",
+          created_at: post.createdAt,
+        })),
+      },
+    };
+  }
+
+  if (board === "reviews") {
+    return {
+      type: "reviews",
+      data: {
+        ...base,
+        course_name: post.courseName ?? post.title,
+        professor_name: post.professor ?? "",
+        assignment_level: "normal",
+        team_project_load: "normal",
+        grading_style: "normal",
+        rating: Number(post.rating ?? 0),
+        year: Number(post.courseYear ?? new Date(post.createdAt).getFullYear()),
+        semester: post.courseSemester?.includes("2") ? "2" : "1",
+        updated_at: post.createdAt,
+      },
+    };
+  }
+
+  return {
+    type: "free",
+    data: {
+      ...base,
+      image_path: null,
+      is_anonymous: false,
+      updated_at: post.createdAt,
+      comment_count: post.comments,
+    },
+  };
+}
+
 export default function PostPage() {
   return (
     <Suspense
@@ -114,9 +212,26 @@ function PostContent() {
 
   const [post, setPost] = useState<PostState | null>(null);
   const [error, setError] = useState(false);
+  const [loginRequired, setLoginRequired] = useState(false);
 
   useEffect(() => {
     const numId = Number(id);
+    setError(false);
+    setPost(null);
+    setLoginRequired(false);
+
+    // 현재 상황: 게시글 상세 내용은 로그인한 사용자만 볼 수 있게 제한합니다.
+    // 목적: 비로그인 사용자는 게시글을 불러오기 전에 안내 화면으로 보내고, 불필요한 API 호출을 막습니다.
+    if (!window.localStorage.getItem(authStorageKey)) {
+      setLoginRequired(true);
+      return;
+    }
+
+    if (!Number.isFinite(numId)) {
+      setError(true);
+      return;
+    }
+
     const fetcher =
       board === "free" ? getFreePost(numId) :
       board === "market" ? getMarketPost(numId) :
@@ -125,8 +240,49 @@ function PostContent() {
 
     fetcher
       .then((data) => setPost({ type: board, data } as PostState))
-      .catch(() => setError(true));
+      .catch(() => {
+        const fallbackPost = getFallbackPost(numId, board);
+
+        if (fallbackPost) {
+          setPost(fallbackPost);
+          return;
+        }
+
+        setError(true);
+      });
   }, [id, board]);
+
+  if (loginRequired) {
+    const boardMeta = BOARD_META[board] ?? BOARD_META.free;
+
+    return (
+      <main className="min-h-screen bg-[#f5f5f5] px-4 py-8 text-[#222222]">
+        <div className="mx-auto max-w-3xl rounded-md border border-[#dedede] bg-white p-8 text-center">
+          <p className="text-sm font-bold text-[#999999]">{boardMeta.name}</p>
+          <h1 className="mt-3 text-xl font-black text-[#222222]">
+            로그인이 필요한 게시글입니다.
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[#777777]">
+            게시글 내용을 보려면 먼저 로그인해 주세요.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <Link
+              className="inline-flex h-10 items-center rounded-md bg-[#c62917] px-5 text-sm font-bold !text-white hover:bg-[#ae2112]"
+              href="/login"
+            >
+              로그인하러 가기
+            </Link>
+            <Link
+              className="inline-flex h-10 items-center rounded-md border border-[#dedede] bg-white px-5 text-sm font-bold text-[#555555] hover:bg-[#fafafa]"
+              href={boardMeta.backHref}
+            >
+              목록으로 돌아가기
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (error) {
     return (

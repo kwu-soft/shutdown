@@ -48,6 +48,7 @@ export type CommunityPost = {
   comments: number;
   likes: number;
   author: string;
+  authorId?: number;
   authorRecommendations: number;
   price?: string;
   statusKey?: MarketStatusKey;

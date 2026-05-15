@@ -48,6 +48,7 @@ class ReviewPostResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     like_count: int
+    author_recommendation_count: int
 
     model_config = {"from_attributes": True}
 

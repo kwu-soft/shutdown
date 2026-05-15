@@ -45,6 +45,14 @@ export async function apiRegister(username: string, email: string, password: str
   return handleResponse(res);
 }
 
+export async function toggleAuthorRecommendation(userId: number) {
+  const res = await fetch(`${API_URL}/auth/users/${userId}/recommend`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return handleResponse<{ recommended: boolean; recommendation_count: number }>(res);
+}
+
 // ── 자유게시판 ──────────────────────────────────────────
 
 export async function getFreePosts(page = 1) {
@@ -120,6 +128,13 @@ export async function getMarketPosts(page = 1) {
   return handleResponse<MarketPostListResponse>(res);
 }
 
+export async function getMyMarketPosts() {
+  const res = await fetch(`${API_URL}/market/mine`, {
+    headers: authHeaders(),
+  });
+  return handleResponse<MarketPostResponse[]>(res);
+}
+
 export async function createMarketPost(formData: FormData) {
   const res = await fetch(`${API_URL}/market`, {
     method: "POST",
@@ -132,6 +147,41 @@ export async function createMarketPost(formData: FormData) {
 export async function getMarketPost(id: number) {
   const res = await fetch(`${API_URL}/market/${id}`);
   return handleResponse<MarketPostResponse>(res);
+}
+
+export async function createPurchaseRequest(postId: number, message: string) {
+  const res = await fetch(`${API_URL}/market/${postId}/purchase-requests`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ message }),
+  });
+  return handleResponse<MarketPurchaseRequestResponse>(res);
+}
+
+export async function getSentPurchaseRequests() {
+  const res = await fetch(`${API_URL}/market/purchase-requests/sent`, {
+    headers: authHeaders(),
+  });
+  return handleResponse<MarketPurchaseRequestResponse[]>(res);
+}
+
+export async function getReceivedPurchaseRequests() {
+  const res = await fetch(`${API_URL}/market/purchase-requests/received`, {
+    headers: authHeaders(),
+  });
+  return handleResponse<MarketPurchaseRequestResponse[]>(res);
+}
+
+export async function updatePurchaseRequestStatus(
+  requestId: number,
+  status: "accepted" | "rejected" | "completed",
+) {
+  const res = await fetch(`${API_URL}/market/purchase-requests/${requestId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ status }),
+  });
+  return handleResponse<MarketPurchaseRequestResponse>(res);
 }
 
 // ── 족보경매장 ──────────────────────────────────────────
@@ -227,6 +277,7 @@ export type FreePostResponse = {
   updated_at: string;
   like_count: number;
   comment_count: number;
+  author_recommendation_count: number;
 };
 
 export type FreePostListResponse = {
@@ -260,6 +311,8 @@ export type MarketPostResponse = {
   created_at: string;
   updated_at: string;
   like_count: number;
+  author_recommendation_count: number;
+  market_status: "available" | "reserved" | "sold";
 };
 
 export type MarketPostListResponse = {
@@ -268,6 +321,21 @@ export type MarketPostListResponse = {
   page: number;
   size: number;
   total_pages: number;
+};
+
+export type MarketPurchaseRequestResponse = {
+  id: number;
+  post_id: number;
+  post_title: string;
+  post_price: number;
+  buyer_id: number;
+  buyer_name: string;
+  seller_id: number;
+  seller_name: string;
+  message: string;
+  status: "requested" | "accepted" | "rejected" | "completed";
+  created_at: string;
+  updated_at: string;
 };
 
 export type AuctionPostResponse = {
@@ -286,6 +354,7 @@ export type AuctionPostResponse = {
   created_at: string;
   is_ended: boolean;
   like_count: number;
+  author_recommendation_count: number;
   bids: Array<{ id: number; bid_amount: number; bidder_name: string; created_at: string }>;
 };
 
@@ -314,6 +383,7 @@ export type ReviewPostResponse = {
   created_at: string;
   updated_at: string;
   like_count: number;
+  author_recommendation_count: number;
 };
 
 export type ReviewPostListResponse = {

@@ -1,6 +1,5 @@
 "use client";
 
-// 족보경매장 상세 페이지에서 입찰 버튼과 입찰 모달을 담당하는 클라이언트 컴포넌트입니다.
 import { useMemo, useState } from "react";
 import { placeBid } from "./lib/api";
 
@@ -15,13 +14,9 @@ type BidPanelProps = {
   postId: number;
 };
 
-const formatWon = (amount: number) => {
-  return `${amount.toLocaleString("ko-KR")}원`;
-};
-
-const parseWon = (value: string) => {
-  return Number(value.replace(/[^0-9]/g, ""));
-};
+const formatWon = (amount: number) => `${amount.toLocaleString("ko-KR")}원`;
+const parseWon = (value: string) => Number(value.replace(/[^0-9]/g, ""));
+const sanitizeMoneyInput = (value: string) => value.replace(/\D/g, "");
 
 export default function BidPanel({
   bidLabel,
@@ -34,7 +29,6 @@ export default function BidPanel({
   postId,
 }: BidPanelProps) {
   const initialCurrentBid = useMemo(() => parseWon(currentBid), [currentBid]);
-
   const [currentBidAmount, setCurrentBidAmount] = useState(initialCurrentBid);
   const [bidCount, setBidCount] = useState(initialBids);
   const [isBidOpen, setIsBidOpen] = useState(false);
@@ -43,25 +37,30 @@ export default function BidPanel({
 
   const additionalBidAmount = parseWon(additionalBid);
   const nextBidAmount = currentBidAmount + additionalBidAmount;
-  const canSubmitBid = additionalBidAmount > 0;
 
   const handleSubmitBid = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canSubmitBid) return;
     setBidError("");
+
+    if (additionalBidAmount <= 0) {
+      setBidError("입찰 금액을 입력해 주세요.");
+      return;
+    }
+
+    if (additionalBidAmount % 100 !== 0) {
+      setBidError("입찰 금액은 100원 단위로 입력해 주세요.");
+      return;
+    }
 
     try {
       const result = await placeBid(postId, additionalBidAmount);
       setCurrentBidAmount(result.bid_amount);
-      setBidCount((c) => c + 1);
+      setBidCount((current) => current + 1);
+      setAdditionalBid("");
+      setIsBidOpen(false);
     } catch (err) {
-      setBidError(err instanceof Error ? err.message : "입찰 실패");
-      // 백엔드 미연결 시 낙관적 업데이트
-      setCurrentBidAmount(nextBidAmount);
-      setBidCount((c) => c + 1);
+      setBidError(err instanceof Error ? err.message : "입찰에 실패했습니다.");
     }
-    setAdditionalBid("");
-    setIsBidOpen(false);
   };
 
   return (
@@ -140,10 +139,10 @@ export default function BidPanel({
                   autoFocus
                   className="h-12 w-full rounded-md border border-[#d9d9d9] bg-white px-3 text-sm outline-none placeholder:text-[#aaaaaa] focus:border-[#c62917] focus:ring-2 focus:ring-[#c62917]/10"
                   inputMode="numeric"
-                  min="1"
-                  onChange={(event) => setAdditionalBid(event.target.value)}
+                  onChange={(event) =>
+                    setAdditionalBid(sanitizeMoneyInput(event.target.value))
+                  }
                   placeholder="예: 1,000"
-                  required
                   type="text"
                   value={additionalBid}
                 />
@@ -156,8 +155,7 @@ export default function BidPanel({
               ) : null}
 
               <button
-                className="h-12 w-full rounded-md bg-[#c62917] text-sm font-bold !text-white transition hover:bg-[#ae2112] disabled:cursor-not-allowed disabled:bg-[#cccccc]"
-                disabled={!canSubmitBid}
+                className="h-12 w-full rounded-md bg-[#c62917] text-sm font-bold !text-white transition hover:bg-[#ae2112]"
                 type="submit"
               >
                 {formatWon(nextBidAmount)}에 입찰하기

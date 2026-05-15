@@ -7,8 +7,9 @@ from dotenv import load_dotenv
 import os
 
 from app.database import get_db
-from app.models.user import User
-from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse
+from app.dependencies import get_current_user
+from app.models.user import User, UserRecommendation
+from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, UserRecommendationResponse
 
 load_dotenv()
 
@@ -73,3 +74,33 @@ def login(body: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 틀렸습니다")
 
     return {"access_token": create_access_token(user.id)}
+
+
+@router.post("/users/{user_id}/recommend", response_model=UserRecommendationResponse)
+def toggle_user_recommendation(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    if target_user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="본인은 추천할 수 없습니다")
+
+    existing = (
+        db.query(UserRecommendation)
+        .filter_by(recommender_id=current_user.id, target_user_id=user_id)
+        .first()
+    )
+
+    if existing:
+        db.delete(existing)
+        db.commit()
+        count = db.query(UserRecommendation).filter_by(target_user_id=user_id).count()
+        return UserRecommendationResponse(recommended=False, recommendation_count=count)
+
+    db.add(UserRecommendation(recommender_id=current_user.id, target_user_id=user_id))
+    db.commit()
+    count = db.query(UserRecommendation).filter_by(target_user_id=user_id).count()
+    return UserRecommendationResponse(recommended=True, recommendation_count=count)

@@ -31,6 +31,7 @@ class FreePostResponse(BaseModel):
     updated_at: datetime
     like_count: int
     comment_count: int
+    author_recommendation_count: int
 
     model_config = {"from_attributes": True}
 

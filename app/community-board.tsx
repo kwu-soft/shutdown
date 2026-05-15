@@ -5,11 +5,8 @@ import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import AuthLink from "./auth-link";
 import {
-  basePosts,
   boards,
   createReviewPostFromStoredReview,
-  groupReviewPosts,
-  reviewPosts,
   type BoardKey,
   type CommunityPost,
   type StoredReviewPost,
@@ -19,7 +16,14 @@ import {
   safeJsonParse,
   submittedReviewsStorageKey,
 } from "./storage";
-import { toggleFreePostLike, toggleMarketPostLike, toggleAuctionPostLike } from "./lib/api";
+import {
+  toggleAuctionPostLike,
+  toggleAuthorRecommendation,
+  toggleFreePostLike,
+  toggleMarketPostLike,
+  toggleReviewLike,
+} from "./lib/api";
+import { formatPostTime } from "./lib/time";
 
 type CommunityBoardProps = {
   // 현재 열려 있는 게시판을 표시하기 위한 키입니다.
@@ -132,16 +136,16 @@ export default function CommunityBoard({
   const visibleSortOptions =
     activeBoard === "examAuction" ? examAuctionSortOptions : sortOptions;
   const displayPosts = useMemo(() => {
-    if (activeBoard !== "reviews") {
-      return posts;
-    }
-
     const storedReviews = safeJsonParse<StoredReviewPost[]>(
       storedReviewsSnapshot,
       [],
     ).map(createReviewPostFromStoredReview);
 
-    return groupReviewPosts([...reviewPosts, ...storedReviews]);
+    if (activeBoard !== "reviews") {
+      return posts;
+    }
+
+    return [...posts, ...storedReviews];
   }, [activeBoard, posts, storedReviewsSnapshot]);
 
   const filteredPosts = useMemo(() => {
@@ -216,7 +220,7 @@ export default function CommunityBoard({
 
   // 오른쪽 추천 랭킹은 강의평을 제외한 더미 데이터의 추천수를 기준으로 계산합니다.
   const ranking = useMemo(() => {
-    return [...basePosts]
+    return [...displayPosts]
       .map((post) => ({
         id: post.id,
         author: post.author,
@@ -224,7 +228,7 @@ export default function CommunityBoard({
       }))
       .sort((first, second) => second.recommendations - first.recommendations)
       .slice(0, 3);
-  }, []);
+  }, [displayPosts]);
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] text-[#222222]">
@@ -387,7 +391,11 @@ export default function CommunityBoard({
                       {ui.rating} {post.rating}
                     </span>
                   ) : null}
-                  <span className="text-xs text-[#999999]">{post.time}</span>
+                  {post.boardKey !== "reviews" ? (
+                    <span className="text-xs text-[#999999]">
+                      {formatPostTime(post.createdAt)}
+                    </span>
+                  ) : null}
                 </div>
                 {/* 글 제목과 요약을 누르면 게시글 상세 페이지로 이동합니다. */}
                 <Link
@@ -445,19 +453,22 @@ export default function CommunityBoard({
                 </Link>
                 {/* 하단 액션 영역: 좋아요/댓글 수와 추천 버튼을 함께 배치합니다. */}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#888888]">
-                  {post.boardKey !== "reviews" ? (
-                    <LikeButton
-                      boardKey={post.boardKey}
-                      initialCount={post.likes}
-                      label={ui.likes}
-                      postId={post.id}
-                    />
-                  ) : null}
+                  <LikeButton
+                    boardKey={post.boardKey}
+                    initialCount={post.likes}
+                    label={ui.likes}
+                    postId={post.id}
+                  />
                   {post.boardKey !== "reviews" ? (
                     <span className="inline-flex h-8 items-center px-1">
                       {ui.comments} {post.comments}
                     </span>
                   ) : null}
+                  <RecommendButton
+                    authorId={post.authorId}
+                    initialCount={post.authorRecommendations}
+                    label={ui.recommend}
+                  />
                   {post.price ? <span>{ui.buy}</span> : null}
                   {post.bids ? (
                     <span>
@@ -516,8 +527,6 @@ function LikeButton({
   const [count, setCount] = useState(initialCount);
   const [liked, setLiked] = useState(false);
 
-  const canToggle = boardKey === "free" || boardKey === "market" || boardKey === "examAuction";
-
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -527,7 +536,9 @@ function LikeButton({
           ? await toggleFreePostLike(postId)
           : boardKey === "market"
           ? await toggleMarketPostLike(postId)
-          : await toggleAuctionPostLike(postId);
+          : boardKey === "examAuction"
+          ? await toggleAuctionPostLike(postId)
+          : await toggleReviewLike(postId);
       setCount(result.like_count);
       setLiked(result.liked);
     } catch {
@@ -535,18 +546,50 @@ function LikeButton({
     }
   };
 
-  if (!canToggle) {
-    return (
-      <span className="inline-flex h-8 items-center px-1 text-[#c62917]">
-        {label} {count}
-      </span>
-    );
-  }
-
   return (
     <button
       className={`inline-flex h-8 items-center px-1 transition ${
         liked ? "font-bold text-[#c62917]" : "text-[#c62917] hover:opacity-70"
+      }`}
+      onClick={handleClick}
+      type="button"
+    >
+      {label} {count}
+    </button>
+  );
+}
+
+function RecommendButton({
+  authorId,
+  initialCount,
+  label,
+}: {
+  authorId?: number;
+  initialCount: number;
+  label: string;
+}) {
+  const [count, setCount] = useState(initialCount);
+  const [recommended, setRecommended] = useState(false);
+
+  const handleClick = async (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!authorId) return;
+
+    try {
+      const result = await toggleAuthorRecommendation(authorId);
+      setCount(result.recommendation_count);
+      setRecommended(result.recommended);
+    } catch {
+      // 로그인 필요 또는 네트워크 오류
+    }
+  };
+
+  return (
+    <button
+      className={`inline-flex h-8 items-center px-1 transition ${
+        recommended ? "font-bold text-[#c62917]" : "text-[#777777] hover:text-[#c62917]"
       }`}
       onClick={handleClick}
       type="button"

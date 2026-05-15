@@ -33,3 +33,8 @@ class TokenResponse(BaseModel):
     # 목적: 이후 보호된 API 요청에서 Bearer 토큰으로 사용합니다.
     access_token: str
     token_type: str = "bearer"
+
+
+class UserRecommendationResponse(BaseModel):
+    recommended: bool
+    recommendation_count: int

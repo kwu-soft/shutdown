@@ -6,7 +6,12 @@ type PostCounterButtonProps = {
   initialCount: number;
   label: string;
   tone?: "red" | "gray";
-  onToggle?: () => Promise<{ liked: boolean; like_count: number }>;
+  onToggle?: () => Promise<{
+    liked?: boolean;
+    like_count?: number;
+    recommended?: boolean;
+    recommendation_count?: number;
+  }>;
 };
 
 export default function PostCounterButton({
@@ -26,8 +31,8 @@ export default function PostCounterButton({
     }
     try {
       const result = await onToggle();
-      setIsSelected(result.liked);
-      setCount(result.like_count);
+      setIsSelected(result.liked ?? result.recommended ?? false);
+      setCount((current) => result.like_count ?? result.recommendation_count ?? current);
     } catch {
       // 로그인 필요 또는 네트워크 오류 시 무시
     }

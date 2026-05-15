@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, DateTime, func
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, func
+from sqlalchemy.orm import relationship
 from app.database import Base
 
 
@@ -11,4 +12,21 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    recommendations_received = relationship(
+        "UserRecommendation",
+        foreign_keys="UserRecommendation.target_user_id",
+        cascade="all, delete-orphan",
+    )
+
+
+class UserRecommendation(Base):
+    __tablename__ = "user_recommendations"
+    __table_args__ = (
+        UniqueConstraint("recommender_id", "target_user_id", name="uq_user_recommendation"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    recommender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    target_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())

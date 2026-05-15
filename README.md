@@ -16,6 +16,7 @@ git remote show origin
 ```
 수정 취소           git restore --staged app/login/page.tsx
 전체 업로드         git add .
+다른 브랜치에 업로드 git push origin [branch name]
 공통
 git commit -m "수정 내용"
 git push

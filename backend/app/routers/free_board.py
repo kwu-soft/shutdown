@@ -36,6 +36,7 @@ def post_to_response(post: FreePost) -> FreePostResponse:
         updated_at=post.updated_at,
         like_count=len(post.likes),
         comment_count=len(post.comments),
+        author_recommendation_count=len(post.author.recommendations_received),
     )
 
 

@@ -1,50 +1,45 @@
-<<<<<<< HEAD
-머리카락 실시간으로 빠지는 중
-+ 머리카락만 빠지면 다행인듯
-
-프론트 Next.js 사용
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-First, run the development server:
-```bash
-npm run dev
 ```
+머리카락 실시간으로 빠지는 중
+머리카락만 빠지면 다행인듯
+```
+## Getting Started
+```
+npm run dev
+python -m http.server 8000
 Open [http://localhost:3000]
-
+Open [http://localhost:8000]
+```
 ## Getting push to git
 ```
-한개만 수정
-git add app/login/파일명.tsx
-여러개 수정
-git add app/login/파일명.tsx app/free/파일명.tsx
-수정 취소
-git restore --staged app/login/page.tsx
-새로운 파일 업로드
-git add app/profile/page.tsx
-새로운 폴더 업로드
-git add app/chat
-전체 업로드
-git add .
-//공통
+git remote show origin
+```
+```
+수정 취소           git restore --staged app/login/page.tsx
+전체 업로드         git add .
+공통
 git commit -m "수정 내용"
 git push
 ```
-## Compare with git (안되믄 git 부터 깔고 오세요)
-## (저장도 안한 상태로 git에 안올라간다고 30분동안 뻘짓한 나)
+## Compare with git
 git status
 ```
-동일할 시
->On branch main
->Your branch is up to date with 'origin/main'.
->nothing to commit, working tree clean
-수정 사항 있을 때
->modified: app/page.tsx
-git보다 뒤쳐질 때 -> git full
->Your branch is behind 'origin/main'
-git보다 앞서갈 때 -> git push
->Your branch is ahead of 'origin/main'
+수정 사항 있을 때   modified: app/page.tsx
+git보다 뒤쳐질 때 [git full]    >Your branch is behind 'origin/main'
+git보다 앞서갈 때 [git push]    >Your branch is ahead of 'origin/main'
 ```
-=======
-# shutdown
->>>>>>> 43183026424941482208377f4d6b39073c472fef
+## List to do
+```
+처음 페이지랑 각각의 게시물 목록에 보이는 내용이랑 동기화 안되어 있음
+게시물 목록에 좋아요 버튼 동기화 안됨
+게시물 내용에 익명 , 닉네임, 이름 색깔 이상함
+게시물 올린 시간 이상함
+작성자 익명 > 익명
+작성자 닉네임 > 닉네임
+구매하기 버튼 활성화 안되어 있음
+입찰하기에 숫자 이외의 글자도 입력이 되어버림
+입찰 단위 생각해보자 1원 추가는 에바임
+강의평게시판에 글 올려도 글이 안올라가짐
+추천 랭킹은 의미가 없어서 새로 만들어야함
+관리자 페이지 추가 > 관리자 계정 만들기 > 신고 내역 볼수 있게 하기
+인원 관리 페이지 추가
+```

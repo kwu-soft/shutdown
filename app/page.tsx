@@ -1,7 +1,6 @@
 import Link from "next/link";
 import AuthLink from "./auth-link";
 import {
-  basePosts,
   examAuctionPosts,
   freePosts,
   groupedReviewPosts,
@@ -9,6 +8,7 @@ import {
   type CommunityPost,
 } from "./community-data";
 import {
+  getAuthorRecommendationRanking,
   getAuctionPosts,
   getFreePosts,
   getMarketPosts,
@@ -31,6 +31,7 @@ const text = {
   login: "로그인",
   ranking: "추천 랭킹",
   recommend: "추천",
+  noRanking: "아직 추천받은 작성자가 없습니다.",
   boardList: "게시판 목록",
   free: "자유게시판",
   market: "장터게시판",
@@ -43,6 +44,7 @@ type BoardSection = {
   href: string;
   posts: CommunityPost[];
 };
+type RankingPerson = { id: string; author: string; recommendations: number };
 
 const POST_PREVIEW_LIMIT = 5;
 
@@ -178,14 +180,43 @@ async function loadBoardSections(): Promise<BoardSection[]> {
   ];
 }
 
-// 전체 게시글 중 작성자 추천수가 높은 글 3개를 골라 오른쪽 랭킹 영역에 보여줍니다.
-// 원본 allPosts 배열을 직접 정렬하면 다른 화면에도 영향이 갈 수 있어 복사본([...allPosts])을 사용합니다.
-const ranking = [...basePosts]
-  .sort(
-    (first, second) =>
-      second.authorRecommendations - first.authorRecommendations,
-  )
-  .slice(0, 3);
+function createFallbackRanking(posts: CommunityPost[]): RankingPerson[] {
+  const authors = new Map<string, RankingPerson>();
+
+  posts.forEach((post) => {
+    const key = post.authorId ? `user-${post.authorId}` : `${post.boardKey}-${post.id}`;
+    const current = authors.get(key);
+
+    if (!current || post.authorRecommendations > current.recommendations) {
+      authors.set(key, {
+        id: key,
+        author: post.author,
+        recommendations: post.authorRecommendations,
+      });
+    }
+  });
+
+  return [...authors.values()]
+    .sort((first, second) => second.recommendations - first.recommendations)
+    .slice(0, 3);
+}
+
+async function loadRecommendationRanking(
+  fallbackPosts: CommunityPost[],
+): Promise<RankingPerson[]> {
+  const fallback = createFallbackRanking(fallbackPosts);
+
+  return withFallback(
+    getAuthorRecommendationRanking().then((items) =>
+      items.map((item) => ({
+        id: `user-${item.user_id}`,
+        author: item.username,
+        recommendations: item.recommendation_count,
+      })),
+    ),
+    fallback,
+  );
+}
 
 function BoardPreviewCard({
   href,
@@ -231,6 +262,9 @@ function BoardPreviewCard({
 
 export default async function Home() {
   const boardSections = await loadBoardSections();
+  const ranking = await loadRecommendationRanking(
+    boardSections.flatMap((section) => section.posts),
+  );
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] text-[#222222]">
@@ -291,7 +325,7 @@ export default async function Home() {
               {text.ranking}
             </div>
             <ol>
-              {ranking.map((post, index) => (
+              {ranking.length > 0 ? ranking.map((post, index) => (
                 <li
                   className="grid grid-cols-[28px_1fr] gap-3 border-b border-[#eeeeee] px-4 py-3 last:border-b-0"
                   key={post.id}
@@ -302,11 +336,15 @@ export default async function Home() {
                       {post.author}
                     </p>
                     <p className="mt-1 text-sm text-[#999999]">
-                      {text.recommend} {post.authorRecommendations}
+                      {text.recommend} {post.recommendations}
                     </p>
                   </div>
                 </li>
-              ))}
+              )) : (
+                <li className="px-4 py-3 text-sm font-semibold text-[#999999]">
+                  {text.noRanking}
+                </li>
+              )}
             </ol>
           </section>
         </aside>

@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from jose import jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
@@ -9,7 +10,14 @@ import os
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User, UserRecommendation
-from app.schemas.user import UserCreate, UserLogin, UserResponse, TokenResponse, UserRecommendationResponse
+from app.schemas.user import (
+    TokenResponse,
+    UserCreate,
+    UserLogin,
+    UserRecommendationRankingItem,
+    UserRecommendationResponse,
+    UserResponse,
+)
 
 load_dotenv()
 
@@ -24,6 +32,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # 현재 상황: 인증 관련 API는 /auth 하위 경로로 묶어서 관리합니다.
 # 목적: 회원가입과 로그인 기능을 다른 게시판 API와 분리합니다.
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+DEFAULT_ADMIN_EMAIL = os.getenv("DEFAULT_ADMIN_EMAIL", "admin@naver.com")
+DEFAULT_ADMIN_USERNAME = os.getenv("DEFAULT_ADMIN_USERNAME", "admin")
+DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin")
+LEGACY_DEFAULT_ADMIN_EMAIL = "admin@campus.com"
 
 
 def hash_password(password: str) -> str:
@@ -58,6 +71,8 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
         username=body.username,
         email=body.email,
         hashed_password=hash_password(body.password),
+        role="user",
+        status="active",
     )
     db.add(user)
     db.commit()
@@ -72,8 +87,97 @@ def login(body: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 틀렸습니다")
+    if user.status == "suspended":
+        raise HTTPException(status_code=403, detail=user.sanction_reason or "정지된 계정입니다")
 
-    return {"access_token": create_access_token(user.id)}
+    return {
+        "access_token": create_access_token(user.id),
+        "user_id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "role": user.role,
+        "status": user.status,
+        "sanction_reason": user.sanction_reason,
+    }
+
+
+@router.get("/me", response_model=UserResponse)
+def read_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+def ensure_default_admin(db: Session) -> None:
+    admin = db.query(User).filter(User.email == DEFAULT_ADMIN_EMAIL).first()
+
+    if not admin:
+        admin = (
+            db.query(User)
+            .filter(User.email == LEGACY_DEFAULT_ADMIN_EMAIL, User.username == DEFAULT_ADMIN_USERNAME)
+            .first()
+        )
+
+    if admin:
+        admin.email = DEFAULT_ADMIN_EMAIL
+        admin.username = DEFAULT_ADMIN_USERNAME
+        admin.hashed_password = hash_password(DEFAULT_ADMIN_PASSWORD)
+        admin.role = "admin"
+        admin.status = "active"
+        admin.sanction_reason = None
+        db.commit()
+        return
+
+    username_owner = db.query(User).filter(User.username == DEFAULT_ADMIN_USERNAME).first()
+    if username_owner:
+        username_owner.email = DEFAULT_ADMIN_EMAIL
+        username_owner.hashed_password = hash_password(DEFAULT_ADMIN_PASSWORD)
+        username_owner.role = "admin"
+        username_owner.status = "active"
+        username_owner.sanction_reason = None
+        db.commit()
+        return
+
+    db.add(
+        User(
+            username=DEFAULT_ADMIN_USERNAME,
+            email=DEFAULT_ADMIN_EMAIL,
+            hashed_password=hash_password(DEFAULT_ADMIN_PASSWORD),
+            role="admin",
+            status="active",
+        )
+    )
+    db.commit()
+
+
+@router.get("/recommendations/ranking", response_model=list[UserRecommendationRankingItem])
+def get_recommendation_ranking(
+    limit: int = Query(3, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(
+            User.id,
+            User.username,
+            func.count(UserRecommendation.id).label("recommendation_count"),
+        )
+        .outerjoin(
+            UserRecommendation,
+            UserRecommendation.target_user_id == User.id,
+        )
+        .group_by(User.id, User.username)
+        .having(func.count(UserRecommendation.id) > 0)
+        .order_by(func.count(UserRecommendation.id).desc(), User.username.asc())
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        UserRecommendationRankingItem(
+            user_id=user_id,
+            username=username,
+            recommendation_count=recommendation_count,
+        )
+        for user_id, username, recommendation_count in rows
+    ]
 
 
 @router.post("/users/{user_id}/recommend", response_model=UserRecommendationResponse)

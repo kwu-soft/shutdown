@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, func
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -12,6 +12,9 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False, server_default="user", default="user")
+    status = Column(String(20), nullable=False, server_default="active", default="active")
+    sanction_reason = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     recommendations_received = relationship(
         "UserRecommendation",

@@ -5,9 +5,9 @@
 ## Getting Started
 ```
 [npm run dev]
-[python -m http.server 8000]
+[backend\venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --port 8010]
 Open [http://localhost:3000]
-Open [http://localhost:8000]
+Backend API [http://localhost:8010]
 ```
 ## Getting push to git
 ```

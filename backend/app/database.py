@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from dotenv import load_dotenv
+from pathlib import Path
 import os
 
 load_dotenv()
@@ -19,7 +20,8 @@ if has_mysql_config:
         f"?charset=utf8mb4"
     )
 else:
-    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./dev.db")
+    default_sqlite_path = Path(__file__).resolve().parents[1] / "dev.db"
+    DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{default_sqlite_path.as_posix()}")
 
 # 현재 상황: SQLAlchemy가 실제 DB와 통신할 때 사용하는 엔진과 세션 팩토리입니다.
 # 목적: 라우터 함수마다 독립적인 DB 세션을 받아 CRUD 작업을 수행하게 합니다.

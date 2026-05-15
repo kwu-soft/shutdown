@@ -25,6 +25,7 @@ type UserProfile = {
   email: string;
   major: string;
   nickname: string;
+  role?: string;
   userId: string;
 };
 
@@ -149,6 +150,7 @@ export default function MyPageClient() {
       email: profileForm.email.trim(),
       major: profileForm.major.trim(),
       nickname: profileForm.nickname.trim(),
+      role: profileForm.role,
       userId: profileForm.userId.trim(),
     };
 

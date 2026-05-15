@@ -23,6 +23,9 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: str
+    role: str
+    status: str
+    sanction_reason: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -33,8 +36,20 @@ class TokenResponse(BaseModel):
     # 목적: 이후 보호된 API 요청에서 Bearer 토큰으로 사용합니다.
     access_token: str
     token_type: str = "bearer"
+    user_id: int
+    username: str
+    email: str
+    role: str
+    status: str
+    sanction_reason: str | None
 
 
 class UserRecommendationResponse(BaseModel):
     recommended: bool
+    recommendation_count: int
+
+
+class UserRecommendationRankingItem(BaseModel):
+    user_id: int
+    username: str
     recommendation_count: int

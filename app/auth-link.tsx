@@ -4,7 +4,12 @@
 // 실제 서버 인증이 아직 없으므로 브라우저 localStorage에 저장된 userId를 로그인 상태로 사용합니다.
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
-import { localStorageChangedEvent, notifyLocalStorageChanged } from "./storage";
+import {
+  localStorageChangedEvent,
+  notifyLocalStorageChanged,
+  safeJsonParse,
+} from "./storage";
+import { JWT_KEY } from "./lib/api";
 
 type AuthLinkProps = {
   loginLabel: string;
@@ -14,6 +19,7 @@ export const authStorageKey = "campus-board-user-id";
 export const nicknameStorageKey = "campus-board-nickname";
 export const nicknameByEmailStorageKey = "campus-board-nickname-by-email";
 export const userProfileStorageKey = "campus-board-user-profile";
+export const userRoleStorageKey = "campus-board-user-role";
 
 function getStoredAuthLabel() {
   return (
@@ -21,6 +27,15 @@ function getStoredAuthLabel() {
     window.localStorage.getItem(authStorageKey) ||
     ""
   );
+}
+
+function getStoredRole() {
+  const savedProfile = safeJsonParse<{ role?: string } | null>(
+    window.localStorage.getItem(userProfileStorageKey),
+    null,
+  );
+
+  return savedProfile?.role || window.localStorage.getItem(userRoleStorageKey) || "";
 }
 
 function subscribeToAuthStorage(onStoreChange: () => void) {
@@ -39,10 +54,18 @@ export default function AuthLink({ loginLabel }: AuthLinkProps) {
     getStoredAuthLabel,
     () => "",
   );
+  const role = useSyncExternalStore(
+    subscribeToAuthStorage,
+    getStoredRole,
+    () => "",
+  );
 
   const handleLogout = () => {
     window.localStorage.removeItem(authStorageKey);
     window.localStorage.removeItem(nicknameStorageKey);
+    window.localStorage.removeItem(userRoleStorageKey);
+    window.localStorage.removeItem(userProfileStorageKey);
+    window.localStorage.removeItem(JWT_KEY);
     notifyLocalStorageChanged();
   };
 
@@ -55,6 +78,14 @@ export default function AuthLink({ loginLabel }: AuthLinkProps) {
         >
           {nickname}
         </Link>
+        {role === "admin" ? (
+          <Link
+            className="rounded-md bg-[#222222] px-4 py-2 text-sm font-bold !text-white transition hover:bg-[#111111]"
+            href="/admin"
+          >
+            관리자 페이지
+          </Link>
+        ) : null}
         <button
           className="rounded-md border border-[#dedede] bg-white px-3 py-2 text-sm font-bold text-[#555555] transition hover:bg-[#fafafa]"
           onClick={handleLogout}

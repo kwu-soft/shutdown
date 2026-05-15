@@ -2,7 +2,7 @@
 
 // 각 게시판 페이지에서 공통으로 사용하는 목록, 검색, 추천 랭킹 UI입니다.
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import AuthLink from "./auth-link";
 import {
   boards,
@@ -18,6 +18,7 @@ import {
 } from "./storage";
 import {
   toggleAuctionPostLike,
+  getAuthorRecommendationRanking,
   toggleAuthorRecommendation,
   toggleFreePostLike,
   toggleMarketPostLike,
@@ -37,6 +38,7 @@ type CommunityBoardProps = {
 };
 
 type SortMode = "latest" | "popular" | "closingSoon";
+type RankingPerson = { id: string; author: string; recommendations: number };
 
 const sortOptions: Array<{ label: string; value: SortMode }> = [
   { label: "최신순", value: "latest" },
@@ -69,6 +71,7 @@ const ui = {
   bids: "입찰",
   recommend: "추천",
   ranking: "추천 랭킹",
+  noRanking: "아직 추천받은 작성자가 없습니다.",
   openPost: "게시글 열기",
 };
 
@@ -127,6 +130,13 @@ export default function CommunityBoard({
   const [searchQuery, setSearchQuery] = useState("");
   const [courseQuery, setCourseQuery] = useState("");
   const [professorQuery, setProfessorQuery] = useState("");
+  const [authorRecommendationState, setAuthorRecommendationState] = useState<{
+    board: BoardKey;
+    counts: Record<number, number>;
+  }>({ board: activeBoard, counts: {} });
+  const [rankingOverride, setRankingOverride] = useState<RankingPerson[] | null>(
+    null,
+  );
   const storedReviewsSnapshot = useSyncExternalStore(
     subscribeToStoredReviews,
     getStoredReviewsSnapshot,
@@ -141,12 +151,22 @@ export default function CommunityBoard({
       [],
     ).map(createReviewPostFromStoredReview);
 
-    if (activeBoard !== "reviews") {
-      return posts;
-    }
+    const boardPosts =
+      activeBoard !== "reviews" ? posts : [...posts, ...storedReviews];
+    const counts =
+      authorRecommendationState.board === activeBoard
+        ? authorRecommendationState.counts
+        : {};
 
-    return [...posts, ...storedReviews];
-  }, [activeBoard, posts, storedReviewsSnapshot]);
+    return boardPosts.map((post) =>
+      post.authorId && counts[post.authorId] !== undefined
+        ? {
+            ...post,
+            authorRecommendations: counts[post.authorId],
+          }
+        : post,
+    );
+  }, [activeBoard, authorRecommendationState, posts, storedReviewsSnapshot]);
 
   const filteredPosts = useMemo(() => {
     const normalizedSearchQuery = searchQuery.trim().toLowerCase();
@@ -220,15 +240,51 @@ export default function CommunityBoard({
 
   // 오른쪽 추천 랭킹은 강의평을 제외한 더미 데이터의 추천수를 기준으로 계산합니다.
   const ranking = useMemo(() => {
-    return [...displayPosts]
-      .map((post) => ({
-        id: post.id,
-        author: post.author,
-        recommendations: post.authorRecommendations,
-      }))
+    if (rankingOverride) {
+      return rankingOverride;
+    }
+
+    const authors = new Map<string, RankingPerson>();
+
+    displayPosts.forEach((post) => {
+      const key = post.authorId ? `user-${post.authorId}` : `post-${post.id}`;
+      const current = authors.get(key);
+
+      if (!current || post.authorRecommendations > current.recommendations) {
+        authors.set(key, {
+          id: key,
+          author: post.author,
+          recommendations: post.authorRecommendations,
+        });
+      }
+    });
+
+    return [...authors.values()]
       .sort((first, second) => second.recommendations - first.recommendations)
       .slice(0, 3);
-  }, [displayPosts]);
+  }, [displayPosts, rankingOverride]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    getAuthorRecommendationRanking()
+      .then((items) => {
+        if (ignore) return;
+
+        setRankingOverride(
+          items.map((item) => ({
+            id: `user-${item.user_id}`,
+            author: item.username,
+            recommendations: item.recommendation_count,
+          })),
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] text-[#222222]">
@@ -468,6 +524,33 @@ export default function CommunityBoard({
                     authorId={post.authorId}
                     initialCount={post.authorRecommendations}
                     label={ui.recommend}
+                    onRecommendationChange={(authorId, count) => {
+                      setAuthorRecommendationState((current) => ({
+                        board: activeBoard,
+                        counts: {
+                          ...(current.board === activeBoard ? current.counts : {}),
+                          [authorId]: count,
+                        },
+                      }));
+                      setRankingOverride((current) =>
+                        current?.map((person) =>
+                          person.id === `user-${authorId}`
+                            ? { ...person, recommendations: count }
+                            : person,
+                        ) ?? current,
+                      );
+                      getAuthorRecommendationRanking()
+                        .then((items) =>
+                          setRankingOverride(
+                            items.map((item) => ({
+                              id: `user-${item.user_id}`,
+                              author: item.username,
+                              recommendations: item.recommendation_count,
+                            })),
+                          ),
+                        )
+                        .catch(() => {});
+                    }}
                   />
                   {post.price ? <span>{ui.buy}</span> : null}
                   {post.bids ? (
@@ -488,7 +571,7 @@ export default function CommunityBoard({
               <h2 className="text-sm font-bold">{ui.ranking}</h2>
             </div>
             <ol className="divide-y divide-[#eeeeee]">
-              {ranking.map((person, index) => (
+              {ranking.length > 0 ? ranking.map((person, index) => (
                 <li
                   className="flex items-center gap-3 px-4 py-3 text-sm"
                   key={person.id}
@@ -503,7 +586,11 @@ export default function CommunityBoard({
                     {person.recommendations}
                   </span>
                 </li>
-              ))}
+              )) : (
+                <li className="px-4 py-3 text-sm font-semibold text-[#999999]">
+                  {ui.noRanking}
+                </li>
+              )}
             </ol>
           </section>
 
@@ -563,13 +650,16 @@ function RecommendButton({
   authorId,
   initialCount,
   label,
+  onRecommendationChange,
 }: {
   authorId?: number;
   initialCount: number;
   label: string;
+  onRecommendationChange?: (authorId: number, count: number) => void;
 }) {
-  const [count, setCount] = useState(initialCount);
+  const [countOverride, setCountOverride] = useState<number | null>(null);
   const [recommended, setRecommended] = useState(false);
+  const count = countOverride ?? initialCount;
 
   const handleClick = async (event: React.MouseEvent) => {
     event.preventDefault();
@@ -579,8 +669,9 @@ function RecommendButton({
 
     try {
       const result = await toggleAuthorRecommendation(authorId);
-      setCount(result.recommendation_count);
+      setCountOverride(result.recommendation_count);
       setRecommended(result.recommended);
+      onRecommendationChange?.(authorId, result.recommendation_count);
     } catch {
       // 로그인 필요 또는 네트워크 오류
     }

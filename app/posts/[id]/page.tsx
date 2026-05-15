@@ -352,7 +352,12 @@ function PostContent() {
                 label={text.recommend}
                 onToggle={() => toggleAuthorRecommendation(post.data.author_id)}
               />
-              <ReportAuthorButton author={author} />
+              <ReportAuthorButton
+                author={author}
+                board={board}
+                postId={post.data.id}
+                targetUserId={post.data.author_id}
+              />
             </div>
           ) : (
             <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-[#777777]">
@@ -362,7 +367,12 @@ function PostContent() {
                 label={text.recommend}
                 onToggle={() => toggleAuthorRecommendation(post.data.author_id)}
               />
-              <ReportAuthorButton author={author} />
+              <ReportAuthorButton
+                author={author}
+                board={board}
+                postId={post.data.id}
+                targetUserId={post.data.author_id}
+              />
             </div>
           )}
         </header>

@@ -56,6 +56,7 @@ class AuctionPostResponse(BaseModel):
     created_at: datetime
     is_ended: bool            # 마감 여부
     like_count: int
+    author_recommendation_count: int
     bids: list[AuctionBidResponse]
 
     model_config = {"from_attributes": True}

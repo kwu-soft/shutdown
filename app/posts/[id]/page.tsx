@@ -15,14 +15,17 @@ import {
   getMarketPost,
   getAuctionPost,
   getReview,
+  toggleAuthorRecommendation,
   toggleFreePostLike,
   toggleMarketPostLike,
   toggleAuctionPostLike,
+  toggleReviewLike,
   type FreePostResponse,
   type MarketPostResponse,
   type AuctionPostResponse,
   type ReviewPostResponse,
 } from "../../lib/api";
+import { formatPostTime } from "../../lib/time";
 
 const text = {
   back: "목록으로 돌아가기",
@@ -66,16 +69,6 @@ const BOARD_META: Record<BoardKey, { name: string; backHref: string }> = {
   examAuction: { name: "족보경매장", backHref: "/exam-auction" },
   reviews: { name: "강의평게시판", backHref: "/reviews" },
 };
-
-function toRelativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "방금";
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  return `${Math.floor(hr / 24)}일 전`;
-}
 
 function getEndsIn(deadlineStr: string): string {
   const diff = new Date(deadlineStr).getTime() - Date.now();
@@ -122,6 +115,7 @@ function mapLocalPostToDetail(post: CommunityPost, board: BoardKey): PostState {
     author_name: post.author,
     created_at: post.createdAt,
     like_count: post.likes,
+    author_recommendation_count: post.authorRecommendations,
   };
 
   if (board === "market") {
@@ -133,6 +127,7 @@ function mapLocalPostToDetail(post: CommunityPost, board: BoardKey): PostState {
         image_path: null,
         is_anonymous: false,
         updated_at: post.createdAt,
+        market_status: post.statusKey ?? "available",
       },
     };
   }
@@ -215,10 +210,14 @@ function PostContent() {
   const [loginRequired, setLoginRequired] = useState(false);
 
   useEffect(() => {
+    let ignore = false;
     const numId = Number(id);
-    setError(false);
-    setPost(null);
-    setLoginRequired(false);
+    queueMicrotask(() => {
+      if (ignore) return;
+
+      setError(false);
+      setPost(null);
+      setLoginRequired(false);
 
     // 현재 상황: 게시글 상세 내용은 로그인한 사용자만 볼 수 있게 제한합니다.
     // 목적: 비로그인 사용자는 게시글을 불러오기 전에 안내 화면으로 보내고, 불필요한 API 호출을 막습니다.
@@ -239,8 +238,14 @@ function PostContent() {
       getReview(numId);
 
     fetcher
-      .then((data) => setPost({ type: board, data } as PostState))
+      .then((data) => {
+        if (!ignore) {
+          setPost({ type: board, data } as PostState);
+        }
+      })
       .catch(() => {
+        if (ignore) return;
+
         const fallbackPost = getFallbackPost(numId, board);
 
         if (fallbackPost) {
@@ -250,6 +255,12 @@ function PostContent() {
 
         setError(true);
       });
+
+    });
+
+    return () => {
+      ignore = true;
+    };
   }, [id, board]);
 
   if (loginRequired) {
@@ -310,7 +321,7 @@ function PostContent() {
   const title = post.data.title;
   const content = post.data.content;
   const author = post.data.author_name;
-  const time = toRelativeTime(post.data.created_at);
+  const time = isReview ? null : formatPostTime(post.data.created_at);
 
   const canViewContent = !isAuction || (post.type === "examAuction" && post.data.is_ended);
 
@@ -327,18 +338,41 @@ function PostContent() {
                 {text.rating} {post.data.rating}
               </span>
             )}
-            <span className="text-xs text-[#999999]">{time}</span>
+            {time ? <span className="text-xs text-[#999999]">{time}</span> : null}
           </div>
           <h1 className="text-2xl font-bold leading-8">{title}</h1>
           {isReview && post.type === "reviews" ? (
-            <p className="mt-3 text-sm font-semibold text-[#777777]">
-              {post.data.professor_name} · {post.data.year}년 {SEMESTER_LABEL[post.data.semester]}
-            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-[#777777]">
+              <span>
+                {post.data.professor_name} · {post.data.year}년 {SEMESTER_LABEL[post.data.semester]}
+              </span>
+              <span className="inline-flex h-8 items-center">{author}</span>
+              <PostCounterButton
+                initialCount={post.data.author_recommendation_count}
+                label={text.recommend}
+                onToggle={() => toggleAuthorRecommendation(post.data.author_id)}
+              />
+              <ReportAuthorButton
+                author={author}
+                board={board}
+                postId={post.data.id}
+                targetUserId={post.data.author_id}
+              />
+            </div>
           ) : (
             <div className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-[#777777]">
-              <span className="inline-flex h-8 items-center">{text.author} {author}</span>
-              <PostCounterButton initialCount={0} label={text.recommend} />
-              <ReportAuthorButton author={author} />
+              <span className="inline-flex h-8 items-center">{author}</span>
+              <PostCounterButton
+                initialCount={post.data.author_recommendation_count}
+                label={text.recommend}
+                onToggle={() => toggleAuthorRecommendation(post.data.author_id)}
+              />
+              <ReportAuthorButton
+                author={author}
+                board={board}
+                postId={post.data.id}
+                targetUserId={post.data.author_id}
+              />
             </div>
           )}
         </header>
@@ -368,12 +402,18 @@ function PostContent() {
               </div>
               <div>
                 <p className="text-xs text-[#888888]">{text.status}</p>
-                <p className="mt-1 font-bold">구매가능</p>
+                <p className="mt-1 font-bold">
+                  {post.data.market_status === "available"
+                    ? "판매중"
+                    : post.data.market_status === "reserved"
+                      ? "예약중"
+                      : "거래완료"}
+                </p>
               </div>
               <MarketPurchaseButton
                 href={`/purchase/${post.data.id}`}
                 label={text.buy}
-                statusKey="available"
+                statusKey={post.data.market_status}
               />
             </div>
           )}
@@ -392,23 +432,23 @@ function PostContent() {
           )}
 
           <div className="flex flex-wrap items-center gap-2 border-t border-[#eeeeee] pt-4 text-sm font-bold text-[#777777]">
-            {!isReview && (
-              <PostCounterButton
-                initialCount={
-                  post.type === "free" ? post.data.like_count :
-                  post.type === "market" ? post.data.like_count :
-                  post.type === "examAuction" ? post.data.like_count : 0
-                }
-                label={text.likes}
-                tone="red"
-                onToggle={
-                  post.type === "free" ? () => toggleFreePostLike(post.data.id) :
-                  post.type === "market" ? () => toggleMarketPostLike(post.data.id) :
-                  post.type === "examAuction" ? () => toggleAuctionPostLike(post.data.id) :
-                  undefined
-                }
-              />
-            )}
+            <PostCounterButton
+              initialCount={
+                post.type === "free" ? post.data.like_count :
+                post.type === "market" ? post.data.like_count :
+                post.type === "examAuction" ? post.data.like_count :
+                post.type === "reviews" ? post.data.like_count : 0
+              }
+              label={text.likes}
+              tone="red"
+              onToggle={
+                post.type === "free" ? () => toggleFreePostLike(post.data.id) :
+                post.type === "market" ? () => toggleMarketPostLike(post.data.id) :
+                post.type === "examAuction" ? () => toggleAuctionPostLike(post.data.id) :
+                post.type === "reviews" ? () => toggleReviewLike(post.data.id) :
+                undefined
+              }
+            />
             {!isReview && (
               <span className="inline-flex h-8 items-center px-1">
                 {text.comments} {post.type === "free" ? post.data.comment_count : 0}
@@ -426,7 +466,7 @@ function PostContent() {
         {post.type === "free" && (
           <CommentSection
             initialCount={post.data.comment_count}
-            postAuthor={post.data.author_name}
+            postAuthorId={post.data.author_id}
             postId={post.data.id}
           />
         )}

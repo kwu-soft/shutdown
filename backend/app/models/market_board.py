@@ -20,6 +20,11 @@ class MarketPost(Base):
 
     author = relationship("User")
     likes = relationship("MarketPostLike", back_populates="post", cascade="all, delete-orphan")
+    purchase_requests = relationship(
+        "MarketPurchaseRequest",
+        back_populates="post",
+        cascade="all, delete-orphan",
+    )
 
 
 class MarketPostLike(Base):
@@ -34,3 +39,20 @@ class MarketPostLike(Base):
     post = relationship("MarketPost", back_populates="likes")
 
     __table_args__ = (UniqueConstraint("user_id", "post_id"),)
+
+
+class MarketPurchaseRequest(Base):
+    __tablename__ = "market_purchase_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("market_posts.id"), nullable=False)
+    buyer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message = Column(Text, nullable=False)
+    status = Column(String(20), default="requested", nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    post = relationship("MarketPost", back_populates="purchase_requests")
+    buyer = relationship("User", foreign_keys=[buyer_id])
+    seller = relationship("User", foreign_keys=[seller_id])

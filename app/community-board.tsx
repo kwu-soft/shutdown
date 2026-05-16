@@ -2,14 +2,11 @@
 
 // 각 게시판 페이지에서 공통으로 사용하는 목록, 검색, 추천 랭킹 UI입니다.
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import AuthLink from "./auth-link";
 import {
-  basePosts,
   boards,
   createReviewPostFromStoredReview,
-  groupReviewPosts,
-  reviewPosts,
   type BoardKey,
   type CommunityPost,
   type StoredReviewPost,
@@ -19,7 +16,15 @@ import {
   safeJsonParse,
   submittedReviewsStorageKey,
 } from "./storage";
-import { toggleFreePostLike, toggleMarketPostLike, toggleAuctionPostLike } from "./lib/api";
+import {
+  toggleAuctionPostLike,
+  getAuthorRecommendationRanking,
+  toggleAuthorRecommendation,
+  toggleFreePostLike,
+  toggleMarketPostLike,
+  toggleReviewLike,
+} from "./lib/api";
+import { formatPostTime } from "./lib/time";
 
 type CommunityBoardProps = {
   // 현재 열려 있는 게시판을 표시하기 위한 키입니다.
@@ -33,6 +38,7 @@ type CommunityBoardProps = {
 };
 
 type SortMode = "latest" | "popular" | "closingSoon";
+type RankingPerson = { id: string; author: string; recommendations: number };
 
 const sortOptions: Array<{ label: string; value: SortMode }> = [
   { label: "최신순", value: "latest" },
@@ -65,6 +71,7 @@ const ui = {
   bids: "입찰",
   recommend: "추천",
   ranking: "추천 랭킹",
+  noRanking: "아직 추천받은 작성자가 없습니다.",
   openPost: "게시글 열기",
 };
 
@@ -123,6 +130,13 @@ export default function CommunityBoard({
   const [searchQuery, setSearchQuery] = useState("");
   const [courseQuery, setCourseQuery] = useState("");
   const [professorQuery, setProfessorQuery] = useState("");
+  const [authorRecommendationState, setAuthorRecommendationState] = useState<{
+    board: BoardKey;
+    counts: Record<number, number>;
+  }>({ board: activeBoard, counts: {} });
+  const [rankingOverride, setRankingOverride] = useState<RankingPerson[] | null>(
+    null,
+  );
   const storedReviewsSnapshot = useSyncExternalStore(
     subscribeToStoredReviews,
     getStoredReviewsSnapshot,
@@ -132,17 +146,27 @@ export default function CommunityBoard({
   const visibleSortOptions =
     activeBoard === "examAuction" ? examAuctionSortOptions : sortOptions;
   const displayPosts = useMemo(() => {
-    if (activeBoard !== "reviews") {
-      return posts;
-    }
-
     const storedReviews = safeJsonParse<StoredReviewPost[]>(
       storedReviewsSnapshot,
       [],
     ).map(createReviewPostFromStoredReview);
 
-    return groupReviewPosts([...reviewPosts, ...storedReviews]);
-  }, [activeBoard, posts, storedReviewsSnapshot]);
+    const boardPosts =
+      activeBoard !== "reviews" ? posts : [...posts, ...storedReviews];
+    const counts =
+      authorRecommendationState.board === activeBoard
+        ? authorRecommendationState.counts
+        : {};
+
+    return boardPosts.map((post) =>
+      post.authorId && counts[post.authorId] !== undefined
+        ? {
+            ...post,
+            authorRecommendations: counts[post.authorId],
+          }
+        : post,
+    );
+  }, [activeBoard, authorRecommendationState, posts, storedReviewsSnapshot]);
 
   const filteredPosts = useMemo(() => {
     const normalizedSearchQuery = searchQuery.trim().toLowerCase();
@@ -216,14 +240,50 @@ export default function CommunityBoard({
 
   // 오른쪽 추천 랭킹은 강의평을 제외한 더미 데이터의 추천수를 기준으로 계산합니다.
   const ranking = useMemo(() => {
-    return [...basePosts]
-      .map((post) => ({
-        id: post.id,
-        author: post.author,
-        recommendations: post.authorRecommendations,
-      }))
+    if (rankingOverride) {
+      return rankingOverride;
+    }
+
+    const authors = new Map<string, RankingPerson>();
+
+    displayPosts.forEach((post) => {
+      const key = post.authorId ? `user-${post.authorId}` : `post-${post.id}`;
+      const current = authors.get(key);
+
+      if (!current || post.authorRecommendations > current.recommendations) {
+        authors.set(key, {
+          id: key,
+          author: post.author,
+          recommendations: post.authorRecommendations,
+        });
+      }
+    });
+
+    return [...authors.values()]
       .sort((first, second) => second.recommendations - first.recommendations)
       .slice(0, 3);
+  }, [displayPosts, rankingOverride]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    getAuthorRecommendationRanking()
+      .then((items) => {
+        if (ignore) return;
+
+        setRankingOverride(
+          items.map((item) => ({
+            id: `user-${item.user_id}`,
+            author: item.username,
+            recommendations: item.recommendation_count,
+          })),
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   return (
@@ -387,7 +447,11 @@ export default function CommunityBoard({
                       {ui.rating} {post.rating}
                     </span>
                   ) : null}
-                  <span className="text-xs text-[#999999]">{post.time}</span>
+                  {post.boardKey !== "reviews" ? (
+                    <span className="text-xs text-[#999999]">
+                      {formatPostTime(post.createdAt)}
+                    </span>
+                  ) : null}
                 </div>
                 {/* 글 제목과 요약을 누르면 게시글 상세 페이지로 이동합니다. */}
                 <Link
@@ -445,19 +509,49 @@ export default function CommunityBoard({
                 </Link>
                 {/* 하단 액션 영역: 좋아요/댓글 수와 추천 버튼을 함께 배치합니다. */}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#888888]">
-                  {post.boardKey !== "reviews" ? (
-                    <LikeButton
-                      boardKey={post.boardKey}
-                      initialCount={post.likes}
-                      label={ui.likes}
-                      postId={post.id}
-                    />
-                  ) : null}
+                  <LikeButton
+                    boardKey={post.boardKey}
+                    initialCount={post.likes}
+                    label={ui.likes}
+                    postId={post.id}
+                  />
                   {post.boardKey !== "reviews" ? (
                     <span className="inline-flex h-8 items-center px-1">
                       {ui.comments} {post.comments}
                     </span>
                   ) : null}
+                  <RecommendButton
+                    authorId={post.authorId}
+                    initialCount={post.authorRecommendations}
+                    label={ui.recommend}
+                    onRecommendationChange={(authorId, count) => {
+                      setAuthorRecommendationState((current) => ({
+                        board: activeBoard,
+                        counts: {
+                          ...(current.board === activeBoard ? current.counts : {}),
+                          [authorId]: count,
+                        },
+                      }));
+                      setRankingOverride((current) =>
+                        current?.map((person) =>
+                          person.id === `user-${authorId}`
+                            ? { ...person, recommendations: count }
+                            : person,
+                        ) ?? current,
+                      );
+                      getAuthorRecommendationRanking()
+                        .then((items) =>
+                          setRankingOverride(
+                            items.map((item) => ({
+                              id: `user-${item.user_id}`,
+                              author: item.username,
+                              recommendations: item.recommendation_count,
+                            })),
+                          ),
+                        )
+                        .catch(() => {});
+                    }}
+                  />
                   {post.price ? <span>{ui.buy}</span> : null}
                   {post.bids ? (
                     <span>
@@ -477,7 +571,7 @@ export default function CommunityBoard({
               <h2 className="text-sm font-bold">{ui.ranking}</h2>
             </div>
             <ol className="divide-y divide-[#eeeeee]">
-              {ranking.map((person, index) => (
+              {ranking.length > 0 ? ranking.map((person, index) => (
                 <li
                   className="flex items-center gap-3 px-4 py-3 text-sm"
                   key={person.id}
@@ -492,7 +586,11 @@ export default function CommunityBoard({
                     {person.recommendations}
                   </span>
                 </li>
-              ))}
+              )) : (
+                <li className="px-4 py-3 text-sm font-semibold text-[#999999]">
+                  {ui.noRanking}
+                </li>
+              )}
             </ol>
           </section>
 
@@ -516,8 +614,6 @@ function LikeButton({
   const [count, setCount] = useState(initialCount);
   const [liked, setLiked] = useState(false);
 
-  const canToggle = boardKey === "free" || boardKey === "market" || boardKey === "examAuction";
-
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -527,7 +623,9 @@ function LikeButton({
           ? await toggleFreePostLike(postId)
           : boardKey === "market"
           ? await toggleMarketPostLike(postId)
-          : await toggleAuctionPostLike(postId);
+          : boardKey === "examAuction"
+          ? await toggleAuctionPostLike(postId)
+          : await toggleReviewLike(postId);
       setCount(result.like_count);
       setLiked(result.liked);
     } catch {
@@ -535,18 +633,54 @@ function LikeButton({
     }
   };
 
-  if (!canToggle) {
-    return (
-      <span className="inline-flex h-8 items-center px-1 text-[#c62917]">
-        {label} {count}
-      </span>
-    );
-  }
-
   return (
     <button
       className={`inline-flex h-8 items-center px-1 transition ${
         liked ? "font-bold text-[#c62917]" : "text-[#c62917] hover:opacity-70"
+      }`}
+      onClick={handleClick}
+      type="button"
+    >
+      {label} {count}
+    </button>
+  );
+}
+
+function RecommendButton({
+  authorId,
+  initialCount,
+  label,
+  onRecommendationChange,
+}: {
+  authorId?: number;
+  initialCount: number;
+  label: string;
+  onRecommendationChange?: (authorId: number, count: number) => void;
+}) {
+  const [countOverride, setCountOverride] = useState<number | null>(null);
+  const [recommended, setRecommended] = useState(false);
+  const count = countOverride ?? initialCount;
+
+  const handleClick = async (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!authorId) return;
+
+    try {
+      const result = await toggleAuthorRecommendation(authorId);
+      setCountOverride(result.recommendation_count);
+      setRecommended(result.recommended);
+      onRecommendationChange?.(authorId, result.recommendation_count);
+    } catch {
+      // 로그인 필요 또는 네트워크 오류
+    }
+  };
+
+  return (
+    <button
+      className={`inline-flex h-8 items-center px-1 transition ${
+        recommended ? "font-bold text-[#c62917]" : "text-[#777777] hover:text-[#c62917]"
       }`}
       onClick={handleClick}
       type="button"

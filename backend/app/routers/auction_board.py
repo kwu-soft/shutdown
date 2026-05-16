@@ -45,6 +45,7 @@ def post_to_response(post: AuctionPost) -> AuctionPostResponse:
         created_at=post.created_at,
         is_ended=post.deadline < now,
         like_count=len(post.likes),
+        author_recommendation_count=len(post.author.recommendations_received),
         bids=[
             AuctionBidResponse(
                 id=b.id,
@@ -101,6 +102,9 @@ async def create_post(
         deadline = deadline.astimezone(timezone.utc).replace(tzinfo=None)
     if deadline <= datetime.now(timezone.utc).replace(tzinfo=None):
         raise HTTPException(status_code=400, detail="마감시간은 현재 시간보다 이후여야 합니다")
+
+    if starting_price <= 0 or starting_price % 100 != 0:
+        raise HTTPException(status_code=400, detail="입찰 시작가격은 100원 단위로 입력해 주세요")
 
     image_path = await save_image(image)
     post = AuctionPost(
@@ -202,6 +206,9 @@ def place_bid(
         raise HTTPException(status_code=400, detail="본인 경매에는 입찰할 수 없습니다")
     if body.additional_amount <= 0:
         raise HTTPException(status_code=400, detail="추가금액은 0보다 커야 합니다")
+
+    if body.additional_amount % 100 != 0:
+        raise HTTPException(status_code=400, detail="입찰 금액은 100원 단위로 입력해 주세요")
 
     current_price = get_current_price(post)
     new_bid_amount = current_price + body.additional_amount

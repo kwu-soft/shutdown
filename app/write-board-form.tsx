@@ -97,6 +97,9 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
   const isMarket = boardType === "market";
   const isExamAuction = boardType === "examAuction";
   const isReview = boardType === "reviews";
+  const sanitizeMoneyInput = (value: string) => value.replace(/\D/g, "");
+  const toMoneyNumber = (value: string) => Number(sanitizeMoneyInput(value));
+  const isValidMoneyUnit = (amount: number) => amount > 0 && amount % 100 === 0;
 
   // 제출 후에는 현재 브라우저에 저장하고 화면 아래 미리보기 카드에 작성 결과를 보여줍니다.
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -156,14 +159,23 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
       formData.append("is_anonymous", String(isAnonymous));
 
       if (isMarket) {
-        const priceNum = Number(price.replace(/[^0-9]/g, ""));
+        const priceNum = toMoneyNumber(price);
+        if (!isValidMoneyUnit(priceNum)) {
+          setSubmitError("가격은 100원 단위의 숫자로 입력해 주세요.");
+          return;
+        }
         formData.append("price", String(priceNum));
         await createMarketPost(formData);
         router.push("/market");
       } else if (isExamAuction) {
+        const startingPriceNum = toMoneyNumber(startPrice);
+        if (!isValidMoneyUnit(startingPriceNum)) {
+          setSubmitError("입찰 시작가격은 100원 단위의 숫자로 입력해 주세요.");
+          return;
+        }
         formData.append("course_name", courseName);
         formData.append("professor_name", professorName);
-        formData.append("starting_price", String(Number(startPrice.replace(/[^0-9]/g, ""))));
+        formData.append("starting_price", String(startingPriceNum));
         formData.append("deadline", new Date(auctionEndTime).toISOString());
         await createAuctionPost(formData);
         router.push("/exam-auction");
@@ -375,7 +387,7 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
                   className="h-12 w-full rounded-md border border-[#d9d9d9] bg-white px-3 text-sm outline-none placeholder:text-[#aaaaaa] focus:border-[#c62917] focus:ring-2 focus:ring-[#c62917]/10"
                   inputMode="numeric"
                   name="price"
-                  onChange={(event) => setPrice(event.target.value)}
+                  onChange={(event) => setPrice(sanitizeMoneyInput(event.target.value))}
                   placeholder="예: 42,000원"
                   required
                   type="text"
@@ -425,7 +437,7 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
                     className="h-12 w-full rounded-md border border-[#d9d9d9] bg-white px-3 text-sm outline-none placeholder:text-[#aaaaaa] focus:border-[#c62917] focus:ring-2 focus:ring-[#c62917]/10"
                     inputMode="numeric"
                     name="startPrice"
-                    onChange={(event) => setStartPrice(event.target.value)}
+                    onChange={(event) => setStartPrice(sanitizeMoneyInput(event.target.value))}
                     placeholder="예: 10,000원"
                     required
                     type="text"
@@ -521,7 +533,7 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
                   {courseYear}년 {courseSemester} 수강자
                 </span>
               ) : (
-                <span>작성자 {authorName}</span>
+                <span>{authorName}</span>
               )}
               {price ? <span>판매 가격 {price}</span> : null}
               {courseName ? <span>강의명 {courseName}</span> : null}

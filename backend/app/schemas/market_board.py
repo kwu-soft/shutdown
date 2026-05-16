@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import Literal
 
 
 class MarketPostCreate(BaseModel):
@@ -33,6 +34,8 @@ class MarketPostResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     like_count: int
+    author_recommendation_count: int
+    market_status: Literal["available", "reserved", "sold"]
 
     model_config = {"from_attributes": True}
 
@@ -45,3 +48,26 @@ class MarketPostListResponse(BaseModel):
     page: int
     size: int
     total_pages: int
+
+
+class MarketPurchaseRequestCreate(BaseModel):
+    message: str
+
+
+class MarketPurchaseRequestUpdate(BaseModel):
+    status: Literal["accepted", "rejected", "completed"]
+
+
+class MarketPurchaseRequestResponse(BaseModel):
+    id: int
+    post_id: int
+    post_title: str
+    post_price: int
+    buyer_id: int
+    buyer_name: str
+    seller_id: int
+    seller_name: str
+    message: str
+    status: str
+    created_at: datetime
+    updated_at: datetime

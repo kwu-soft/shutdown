@@ -4,16 +4,7 @@ import { useEffect, useState } from "react";
 import CommunityBoard from "../community-board";
 import { marketPosts, type CommunityPost } from "../community-data";
 import { getMarketPosts, type MarketPostResponse } from "../lib/api";
-
-function toRelativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "방금";
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  return `${Math.floor(hr / 24)}일 전`;
-}
+import { formatPostTime } from "../lib/time";
 
 function toPost(p: MarketPostResponse): CommunityPost {
   return {
@@ -23,14 +14,20 @@ function toPost(p: MarketPostResponse): CommunityPost {
     title: p.title,
     preview: p.content.slice(0, 100),
     createdAt: p.created_at,
-    time: toRelativeTime(p.created_at),
+    time: formatPostTime(p.created_at),
     comments: 0,
     likes: p.like_count,
     author: p.author_name,
-    authorRecommendations: 0,
+    authorId: p.author_id,
+    authorRecommendations: p.author_recommendation_count,
     price: `${p.price.toLocaleString("ko-KR")}원`,
-    statusKey: "available",
-    status: "구매가능",
+    statusKey: p.market_status,
+    status:
+      p.market_status === "available"
+        ? "판매중"
+        : p.market_status === "reserved"
+          ? "예약중"
+          : "거래완료",
   };
 }
 
@@ -38,9 +35,20 @@ export default function MarketBoardPage() {
   const [posts, setPosts] = useState<CommunityPost[]>(marketPosts);
 
   useEffect(() => {
-    getMarketPosts()
-      .then((data) => setPosts(data.posts.map(toPost)))
-      .catch(() => {});
+    const refreshPosts = () => {
+      getMarketPosts()
+        .then((data) => setPosts(data.posts.map(toPost)))
+        .catch(() => {});
+    };
+
+    refreshPosts();
+    window.addEventListener("pageshow", refreshPosts);
+    window.addEventListener("focus", refreshPosts);
+
+    return () => {
+      window.removeEventListener("pageshow", refreshPosts);
+      window.removeEventListener("focus", refreshPosts);
+    };
   }, []);
 
   return (

@@ -1,40 +1,62 @@
 "use client";
 
-// 게시글 작성자를 신고하는 버튼입니다.
-// 아직 서버 저장은 없으므로 신고 사유를 고른 뒤 현재 화면에서 접수 상태만 보여줍니다.
 import { FormEvent, useState } from "react";
+import { createReport } from "./lib/api";
 
 type ReportAuthorButtonProps = {
   author: string;
+  board: string;
+  postId: number;
+  targetUserId?: number;
 };
 
 const reportReasons = [
   "게시판 성격에 맞지 않음",
   "욕설/비하",
-  "음란물/불건전한 만남 및 대화",
+  "불건전한 만남 및 대화",
   "상업적 광고 및 판매",
   "유출/사칭/사기",
-  "낚시/놀람/도배",
+  "입시/대학 서열 조장",
   "정당/정치인 비하 및 선거운동",
   "불법촬영물 등의 유통",
   "기타",
 ];
 
-export default function ReportAuthorButton({ author }: ReportAuthorButtonProps) {
+export default function ReportAuthorButton({
+  author,
+  board,
+  postId,
+  targetUserId,
+}: ReportAuthorButtonProps) {
   const [isReported, setIsReported] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedReason, setSelectedReason] = useState(reportReasons[0]);
   const [extraReason, setExtraReason] = useState("");
+  const [error, setError] = useState("");
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError("");
 
     if (selectedReason === "기타" && !extraReason.trim()) {
+      setError("기타 신고 사유를 입력해주세요.");
       return;
     }
 
-    setIsReported(true);
-    setIsOpen(false);
+    try {
+      await createReport({
+        board,
+        details: extraReason.trim() || undefined,
+        post_id: postId,
+        reason: selectedReason,
+        target_author_name: author,
+        target_user_id: targetUserId,
+      });
+      setIsReported(true);
+      setIsOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "신고를 접수할 수 없습니다.");
+    }
   };
 
   return (
@@ -63,7 +85,7 @@ export default function ReportAuthorButton({ author }: ReportAuthorButtonProps) 
               <div>
                 <h2 className="text-xl font-black">작성자 신고</h2>
                 <p className="mt-1 text-sm leading-6 text-[#777777]">
-                  {author} 작성자를 신고하는 이유를 선택하세요.
+                  {author} 작성자를 신고하는 이유를 선택해주세요.
                 </p>
               </div>
               <button
@@ -104,11 +126,17 @@ export default function ReportAuthorButton({ author }: ReportAuthorButtonProps) 
                   <textarea
                     className="min-h-28 w-full resize-y rounded-md border border-[#d9d9d9] px-3 py-3 text-sm leading-6 outline-none placeholder:text-[#aaaaaa] focus:border-[#c62917] focus:ring-2 focus:ring-[#c62917]/10"
                     onChange={(event) => setExtraReason(event.target.value)}
-                    placeholder="신고 내용을 입력하세요"
+                    placeholder="신고 내용을 입력해주세요"
                     required
                     value={extraReason}
                   />
                 </label>
+              ) : null}
+
+              {error ? (
+                <p className="rounded-md bg-[#fff5f3] px-3 py-2 text-sm font-bold text-[#c62917]">
+                  {error}
+                </p>
               ) : null}
 
               <button

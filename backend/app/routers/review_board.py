@@ -34,6 +34,7 @@ def post_to_response(post: ReviewPost) -> ReviewPostResponse:
         created_at=post.created_at,
         updated_at=post.updated_at,
         like_count=len(post.likes),
+        author_recommendation_count=len(post.author.recommendations_received),
     )
 
 

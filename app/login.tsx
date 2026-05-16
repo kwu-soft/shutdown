@@ -8,6 +8,7 @@ import {
   authStorageKey,
   nicknameByEmailStorageKey,
   nicknameStorageKey,
+  userRoleStorageKey,
   userProfileStorageKey,
 } from "./auth-link";
 import { apiLogin, apiRegister, JWT_KEY } from "./lib/api";
@@ -57,8 +58,8 @@ export default function Login() {
     const password = String(formData.get("password") ?? "");
 
     try {
-      const token = await apiLogin(email, password);
-      window.localStorage.setItem(JWT_KEY, token);
+      const session = await apiLogin(email, password);
+      window.localStorage.setItem(JWT_KEY, session.access_token);
 
       // 다른 계정의 프로필이 남아있으면 지움
       const savedProfile = safeJsonParse<{ email?: string } | null>(
@@ -74,10 +75,21 @@ export default function Login() {
         window.localStorage.getItem(nicknameByEmailStorageKey),
         {},
       );
-      const userId = email.split("@")[0] || "campus-user";
-      const nickname = savedNicknames[email] || userId;
+      const userId = session.username || email.split("@")[0] || "campus-user";
+      const nickname = savedNicknames[email] || session.username || userId;
       window.localStorage.setItem(authStorageKey, userId);
       window.localStorage.setItem(nicknameStorageKey, nickname);
+      window.localStorage.setItem(userRoleStorageKey, session.role);
+      window.localStorage.setItem(
+        userProfileStorageKey,
+        JSON.stringify({
+          email: session.email,
+          major: savedProfile?.email === email ? (savedProfile as { major?: string }).major ?? "" : "",
+          nickname,
+          role: session.role,
+          userId,
+        }),
+      );
       notifyLocalStorageChanged();
       router.push("/");
     } catch (err) {
@@ -99,8 +111,8 @@ export default function Login() {
       await apiRegister(nickname, email, password);
 
       // 회원가입 성공 후 바로 로그인
-      const token = await apiLogin(email, password);
-      window.localStorage.setItem(JWT_KEY, token);
+      const session = await apiLogin(email, password);
+      window.localStorage.setItem(JWT_KEY, session.access_token);
 
       const savedNicknames = safeJsonParse<Record<string, string>>(
         window.localStorage.getItem(nicknameByEmailStorageKey),
@@ -112,9 +124,10 @@ export default function Login() {
       );
       window.localStorage.setItem(authStorageKey, userId);
       window.localStorage.setItem(nicknameStorageKey, nickname);
+      window.localStorage.setItem(userRoleStorageKey, session.role);
       window.localStorage.setItem(
         userProfileStorageKey,
-        JSON.stringify({ email, major, nickname, userId }),
+        JSON.stringify({ email, major, nickname, role: session.role, userId }),
       );
       notifyLocalStorageChanged();
       setIsSignupOpen(false);

@@ -3,10 +3,15 @@
 // 자유게시판, 장터게시판, 족보경매장, 강의평게시판의 글쓰기 화면을 하나의 폼 컴포넌트로 처리합니다.
 // 게시판마다 필요한 추가 입력값이 다르기 때문에 boardType 값에 따라 필드를 조건부로 보여줍니다.
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { AssignmentLoad, GradingStyle, TeamProjectLoad } from "./community-data";
-import { createAuctionPost, createFreePost, createMarketPost, createReview, JWT_KEY } from "./lib/api";
+import {
+  createAuctionPost, createFreePost, createMarketPost, createReview,
+  updateFreePost, updateMarketPost, updateAuctionPost, updateReview,
+  getFreePost, getMarketPost, getAuctionPost, getReview,
+  JWT_KEY,
+} from "./lib/api";
 
 const ASSIGNMENT_API_MAP: Record<AssignmentLoad, string> = {
   "많음": "many", "보통": "normal", "적음": "few", "없음": "none",
@@ -99,6 +104,10 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
   const isReview = boardType === "reviews";
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("editId") ? Number(searchParams.get("editId")) : null;
+  const isEditMode = editId !== null;
+
   const [isAuthorized, setIsAuthorized] = useState(false);
   useEffect(() => {
     if (window.localStorage.getItem(JWT_KEY)) {
@@ -141,6 +150,35 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
   const [submitError, setSubmitError] = useState("");
   const authorName = isAnonymous ? "익명" : defaultNickname;
 
+  useEffect(() => {
+    if (!isEditMode || !editId) return;
+    if (isReview) {
+      getReview(editId).then((d) => {
+        setCourseName(d.course_name);
+        setProfessorName(d.professor_name);
+        setContent(d.content);
+        setRating(String(d.rating));
+        setCourseYear(String(d.year));
+        setAssignmentLoad(({"many":"많음","normal":"보통","few":"적음","none":"없음"} as Record<string,AssignmentLoad>)[d.assignment_level] ?? "보통");
+        setTeamProjectLoad(({"many":"많음","normal":"보통","few":"적음","none":"없음"} as Record<string,TeamProjectLoad>)[d.team_project_load] ?? "보통");
+        setGradingStyle(({"generous":"너그러움","normal":"보통","strict":"깐깐함"} as Record<string,GradingStyle>)[d.grading_style] ?? "보통");
+      }).catch(() => {});
+    } else if (isMarket) {
+      getMarketPost(editId).then((d) => {
+        setTitle(d.title); setContent(d.content); setPrice(String(d.price));
+      }).catch(() => {});
+    } else if (isExamAuction) {
+      getAuctionPost(editId).then((d) => {
+        setTitle(d.title); setContent(d.content);
+        setCourseName(d.course_name); setProfessorName(d.professor_name);
+      }).catch(() => {});
+    } else {
+      getFreePost(editId).then((d) => {
+        setTitle(d.title); setContent(d.content);
+      }).catch(() => {});
+    }
+  }, [isEditMode, editId, isReview, isMarket, isExamAuction]);
+
   if (!isAuthorized) return null;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -149,7 +187,7 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
 
     try {
       if (isReview) {
-        await createReview({
+        const reviewPayload = {
           title: courseName,
           content,
           course_name: courseName,
@@ -160,8 +198,14 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
           rating: Number(rating),
           year: Number(courseYear),
           semester: SEMESTER_API_MAP[courseSemester] as "1" | "2" | "summer" | "winter",
-        });
-        router.push("/reviews");
+        };
+        if (isEditMode && editId) {
+          await updateReview(editId, reviewPayload);
+          router.push(`/posts/${editId}?board=reviews`);
+        } else {
+          await createReview(reviewPayload);
+          router.push("/reviews");
+        }
         return;
       }
 
@@ -180,23 +224,38 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
           return;
         }
         formData.append("price", String(priceNum));
-        await createMarketPost(formData);
-        router.push("/market");
-      } else if (isExamAuction) {
-        const startingPriceNum = toMoneyNumber(startPrice);
-        if (!isValidMoneyUnit(startingPriceNum)) {
-          setSubmitError("입찰 시작가격은 100원 단위의 숫자로 입력해 주세요.");
-          return;
+        if (isEditMode && editId) {
+          await updateMarketPost(editId, formData);
+          router.push(`/posts/${editId}?board=market`);
+        } else {
+          await createMarketPost(formData);
+          router.push("/market");
         }
-        formData.append("course_name", courseName);
-        formData.append("professor_name", professorName);
-        formData.append("starting_price", String(startingPriceNum));
-        formData.append("deadline", new Date(auctionEndTime).toISOString());
-        await createAuctionPost(formData);
-        router.push("/exam-auction");
+      } else if (isExamAuction) {
+        if (!isEditMode) {
+          const startingPriceNum = toMoneyNumber(startPrice);
+          if (!isValidMoneyUnit(startingPriceNum)) {
+            setSubmitError("입찰 시작가격은 100원 단위의 숫자로 입력해 주세요.");
+            return;
+          }
+          formData.append("course_name", courseName);
+          formData.append("professor_name", professorName);
+          formData.append("starting_price", String(startingPriceNum));
+          formData.append("deadline", new Date(auctionEndTime).toISOString());
+          await createAuctionPost(formData);
+          router.push("/exam-auction");
+        } else if (editId) {
+          await updateAuctionPost(editId, formData);
+          router.push(`/posts/${editId}?board=examAuction`);
+        }
       } else {
-        await createFreePost(formData);
-        router.push("/free");
+        if (isEditMode && editId) {
+          await updateFreePost(editId, formData);
+          router.push(`/posts/${editId}?board=free`);
+        } else {
+          await createFreePost(formData);
+          router.push("/free");
+        }
       }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "게시글 등록 실패. 로그인 상태를 확인하세요.");
@@ -213,7 +272,7 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
             <p className="text-sm font-bold text-[#c62917]">
               {settings.boardName}
             </p>
-            <h1 className="mt-1 text-2xl font-black">{settings.title}</h1>
+            <h1 className="mt-1 text-2xl font-black">{isEditMode ? settings.title.replace("글쓰기", "수정") : settings.title}</h1>
             <p className="mt-2 text-sm text-[#777777]">
               {settings.description}
             </p>
@@ -519,7 +578,7 @@ export default function WriteBoardForm({ boardType }: WriteBoardFormProps) {
               className="h-12 flex-1 rounded-md bg-[#c62917] text-sm font-bold !text-white transition hover:bg-[#ae2112]"
               type="submit"
             >
-              {settings.submitLabel}
+              {isEditMode ? "수정 완료" : settings.submitLabel}
             </button>
           </div>
 

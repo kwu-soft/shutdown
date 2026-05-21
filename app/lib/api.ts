@@ -190,6 +190,14 @@ export async function createFreeComment(postId: number, content: string, isAnony
   return handleResponse<FreeCommentResponse>(res);
 }
 
+export async function deleteFreeComment(commentId: number) {
+  const res = await fetch(`${API_URL}/free-board/comments/${commentId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return handleResponse<void>(res);
+}
+
 export async function toggleFreeCommentLike(commentId: number) {
   const res = await fetch(`${API_URL}/free-board/comments/${commentId}/like`, {
     method: "POST",
@@ -224,6 +232,23 @@ export async function createMarketPost(formData: FormData) {
 export async function getMarketPost(id: number) {
   const res = await fetch(`${API_URL}/market/${id}`);
   return handleResponse<MarketPostResponse>(res);
+}
+
+export async function updateMarketPost(id: number, formData: FormData) {
+  const res = await fetch(`${API_URL}/market/${id}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: formData,
+  });
+  return handleResponse<MarketPostResponse>(res);
+}
+
+export async function deleteMarketPost(id: number) {
+  const res = await fetch(`${API_URL}/market/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return handleResponse<void>(res);
 }
 
 export async function createPurchaseRequest(postId: number, message: string) {
@@ -282,6 +307,23 @@ export async function getAuctionPost(id: number) {
   return handleResponse<AuctionPostResponse>(res);
 }
 
+export async function updateAuctionPost(id: number, formData: FormData) {
+  const res = await fetch(`${API_URL}/auction/${id}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: formData,
+  });
+  return handleResponse<AuctionPostResponse>(res);
+}
+
+export async function deleteAuctionPost(id: number) {
+  const res = await fetch(`${API_URL}/auction/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return handleResponse<void>(res);
+}
+
 export async function toggleMarketPostLike(id: number) {
   const res = await fetch(`${API_URL}/market/${id}/like`, {
     method: "POST",
@@ -330,6 +372,23 @@ export async function createReview(data: ReviewPostCreate) {
 export async function getReview(id: number) {
   const res = await fetch(`${API_URL}/reviews/${id}`);
   return handleResponse<ReviewPostResponse>(res);
+}
+
+export async function updateReview(id: number, data: Partial<ReviewPostCreate>) {
+  const res = await fetch(`${API_URL}/reviews/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(data),
+  });
+  return handleResponse<ReviewPostResponse>(res);
+}
+
+export async function deleteReview(id: number) {
+  const res = await fetch(`${API_URL}/reviews/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return handleResponse<void>(res);
 }
 
 export async function toggleReviewLike(id: number) {

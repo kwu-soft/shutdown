@@ -217,7 +217,7 @@ def list_posts(
                     author_name=post.author.username,
                     created_at=post.created_at,
                     like_count=len(post.likes),
-                    comment_count=len(post.comments) if hasattr(post, "comments") else 0,
+                    comment_count=len(post.comments) if board_key == "free" else 0,
                 )
             )
 

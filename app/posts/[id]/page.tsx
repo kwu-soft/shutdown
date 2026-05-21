@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
-import AuthLink, { authStorageKey } from "../../auth-link";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import AuthLink, { authStorageKey, userNumericIdStorageKey } from "../../auth-link";
 import BidPanel from "../../bid-panel";
 import CommentSection from "../../comment-section";
 import { allPosts, boards, type CommunityPost } from "../../community-data";
@@ -15,11 +15,16 @@ import {
   getMarketPost,
   getAuctionPost,
   getReview,
+  deleteFreePost,
+  deleteMarketPost,
+  deleteAuctionPost,
+  deleteReview,
   toggleAuthorRecommendation,
   toggleFreePostLike,
   toggleMarketPostLike,
   toggleAuctionPostLike,
   toggleReviewLike,
+  API_URL,
   type FreePostResponse,
   type MarketPostResponse,
   type AuctionPostResponse,
@@ -202,12 +207,20 @@ export default function PostPage() {
 
 function PostContent() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const board = (searchParams.get("board") ?? "free") as BoardKey;
 
   const [post, setPost] = useState<PostState | null>(null);
   const [error, setError] = useState(false);
   const [loginRequired, setLoginRequired] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+
+  useEffect(() => {
+    const id = Number(window.localStorage.getItem(userNumericIdStorageKey));
+    if (id) setCurrentUserId(id);
+  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -322,8 +335,23 @@ function PostContent() {
   const content = post.data.content;
   const author = post.data.author_name;
   const time = isReview ? null : formatPostTime(post.data.created_at);
+  const imagePath = "image_path" in post.data ? post.data.image_path : null;
 
   const canViewContent = !isAuction || (post.type === "examAuction" && post.data.is_ended);
+  const isOwner = currentUserId !== null && currentUserId === post.data.author_id;
+
+  const handleDelete = async () => {
+    if (!window.confirm("게시글을 삭제하시겠습니까?")) return;
+    try {
+      if (post.type === "free") await deleteFreePost(post.data.id);
+      else if (post.type === "market") await deleteMarketPost(post.data.id);
+      else if (post.type === "examAuction") await deleteAuctionPost(post.data.id);
+      else if (post.type === "reviews") await deleteReview(post.data.id);
+      router.push(boardMeta.backHref);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+    }
+  };
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] text-[#222222]">
@@ -428,6 +456,14 @@ function PostContent() {
             </div>
           )}
 
+          {imagePath && (
+            <img
+              alt="게시글 이미지"
+              className="w-full rounded-md border border-[#eeeeee] object-contain"
+              src={`${API_URL}/${imagePath}`}
+            />
+          )}
+
           {isMarket && post.type === "market" && (
             <div className="grid gap-3 rounded-md border border-[#eeeeee] bg-[#fafafa] p-4 sm:grid-cols-[1fr_1fr_auto]">
               <div>
@@ -465,6 +501,10 @@ function PostContent() {
             />
           )}
 
+          {deleteError && (
+            <p className="rounded-md bg-[#fff5f3] px-3 py-2 text-sm font-bold text-[#c62917]">{deleteError}</p>
+          )}
+
           <div className="flex flex-wrap items-center gap-2 border-t border-[#eeeeee] pt-4 text-sm font-bold text-[#777777]">
             <PostCounterButton
               initialCount={
@@ -487,6 +527,23 @@ function PostContent() {
               <span className="inline-flex h-8 items-center px-1">
                 {text.comments} {post.type === "free" ? post.data.comment_count : 0}
               </span>
+            )}
+            {isOwner && (
+              <>
+                <Link
+                  className="inline-flex h-8 items-center rounded-md border border-[#dedede] bg-white px-4 text-sm font-bold text-[#555555] hover:bg-[#fafafa]"
+                  href={`/write/${board === "free" ? "free" : board === "market" ? "market" : board === "examAuction" ? "exam-auction" : "reviews"}?editId=${post.data.id}`}
+                >
+                  수정
+                </Link>
+                <button
+                  className="inline-flex h-8 items-center rounded-md border border-[#c62917] bg-white px-4 text-sm font-bold text-[#c62917] hover:bg-[#fff5f3]"
+                  onClick={handleDelete}
+                  type="button"
+                >
+                  삭제
+                </button>
+              </>
             )}
             <Link
               className="ml-auto inline-flex h-8 items-center rounded-md border border-[#dedede] bg-white px-4 text-sm font-bold text-[#555555] hover:bg-[#fafafa]"

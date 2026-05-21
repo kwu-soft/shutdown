@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { createFreeComment, getFreeComments } from "./lib/api";
+import { createFreeComment, deleteFreeComment, getFreeComments } from "./lib/api";
+import { userNumericIdStorageKey } from "./auth-link";
 
 type CommentSectionProps = {
   initialCount: number;
@@ -27,6 +28,12 @@ export default function CommentSection({
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const id = Number(window.localStorage.getItem(userNumericIdStorageKey));
+    if (id) setCurrentUserId(id);
+  }, []);
 
   useEffect(() => {
     getFreeComments(postId)
@@ -71,6 +78,16 @@ export default function CommentSection({
     }
 
     return comment.author;
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    if (!window.confirm("댓글을 삭제하시겠습니까?")) return;
+    try {
+      await deleteFreeComment(commentId);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch {
+      // 삭제 실패 시 무시
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -138,15 +155,28 @@ export default function CommentSection({
           {comments.map((comment) => {
             const isPostAuthor = comment.authorId === postAuthorId;
 
+            const isMyComment = currentUserId !== null && currentUserId === comment.authorId;
+
             return (
               <li className="px-4 py-3 text-sm leading-6 text-[#333333]" key={comment.id}>
-                <p
-                  className={`mb-1 text-xs font-black ${
-                    isPostAuthor ? "text-[#2563eb]" : "text-[#c62917]"
-                  }`}
-                >
-                  {getCommentAuthorLabel(comment)}
-                </p>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <p
+                    className={`text-xs font-black ${
+                      isPostAuthor ? "text-[#2563eb]" : "text-[#c62917]"
+                    }`}
+                  >
+                    {getCommentAuthorLabel(comment)}
+                  </p>
+                  {isMyComment && (
+                    <button
+                      className="text-xs text-[#aaaaaa] hover:text-[#c62917]"
+                      onClick={() => handleDeleteComment(comment.id)}
+                      type="button"
+                    >
+                      삭제
+                    </button>
+                  )}
+                </div>
                 <p>{comment.content}</p>
               </li>
             );

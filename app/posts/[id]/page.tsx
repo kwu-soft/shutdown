@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { authStorageKey } from "../../auth-link";
 import BidPanel from "../../bid-panel";
 import CommentSection from "../../comment-section";
-import { allPosts, type CommunityPost } from "../../community-data";
+import { allPosts, boards, type CommunityPost } from "../../community-data";
 import MarketPurchaseButton from "../../market-purchase-button";
 import PostCounterButton from "../../post-counter-button";
 import ReportAuthorButton from "../../report-author-button";
@@ -327,7 +327,25 @@ function PostContent() {
 
   return (
     <main className="min-h-screen bg-[#f5f5f5] px-4 py-8 text-[#222222]">
-      <article className="mx-auto max-w-3xl rounded-md border border-[#dedede] bg-white">
+      <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[180px_1fr]">
+        <aside className="hidden lg:block">
+          <nav className="overflow-hidden rounded-md border border-[#dedede] bg-white">
+            {boards.map((b) => (
+              <Link
+                className={`block border-b border-[#eeeeee] px-4 py-3 text-sm last:border-b-0 ${
+                  board === b.key
+                    ? "bg-[#fff5f3] font-bold text-[#c62917]"
+                    : "text-[#333333] hover:bg-[#fafafa]"
+                }`}
+                href={b.href}
+                key={b.key}
+              >
+                {b.label}
+              </Link>
+            ))}
+          </nav>
+        </aside>
+        <article className="rounded-md border border-[#dedede] bg-white">
         <header className="border-b border-[#eeeeee] px-5 py-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <span className="rounded-sm bg-[#f1f1f1] px-2 py-1 text-xs font-semibold text-[#777777]">
@@ -473,6 +491,7 @@ function PostContent() {
           />
         )}
       </article>
+      </div>
     </main>
   );
 }

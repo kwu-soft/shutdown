@@ -26,10 +26,11 @@ export default function CommentSection({
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     getFreeComments(postId)
-      .then((data) =>
+      .then((data) => {
         setComments(
           data.map((comment) => ({
             id: comment.id,
@@ -38,8 +39,9 @@ export default function CommentSection({
             content: comment.content,
             isAnonymous: comment.is_anonymous,
           })),
-        ),
-      )
+        );
+        setIsLoaded(true);
+      })
       .catch(() => {});
   }, [postId]);
 
@@ -99,7 +101,7 @@ export default function CommentSection({
     <section className="border-t border-[#eeeeee] px-5 py-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-sm font-black text-[#333333]">
-          댓글 {initialCount + comments.length}
+          댓글 {isLoaded ? comments.length : initialCount}
         </h2>
       </div>
 

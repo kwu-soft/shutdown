@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { authStorageKey } from "../../auth-link";
+import AuthLink, { authStorageKey } from "../../auth-link";
 import BidPanel from "../../bid-panel";
 import CommentSection from "../../comment-section";
 import { allPosts, boards, type CommunityPost } from "../../community-data";
@@ -326,8 +326,22 @@ function PostContent() {
   const canViewContent = !isAuction || (post.type === "examAuction" && post.data.is_ended);
 
   return (
-    <main className="min-h-screen bg-[#f5f5f5] px-4 py-8 text-[#222222]">
-      <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[180px_1fr]">
+    <main className="min-h-screen bg-[#f5f5f5] text-[#222222]">
+      <header className="sticky top-0 z-10 border-b border-[#e2e2e2] bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+          <Link className="flex items-center gap-3" href="/">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#c62917] text-lg font-black !text-white">
+              L
+            </div>
+            <div>
+              <h1 className="text-base font-bold leading-tight">캠퍼스 게시판</h1>
+              <p className="text-xs text-[#777777]">우리 학교 실시간 커뮤니티</p>
+            </div>
+          </Link>
+          <AuthLink loginLabel="로그인" />
+        </div>
+      </header>
+      <div className="mx-auto grid max-w-6xl gap-5 px-4 py-5 lg:grid-cols-[180px_1fr]">
         <aside className="hidden lg:block">
           <nav className="overflow-hidden rounded-md border border-[#dedede] bg-white">
             {boards.map((b) => (

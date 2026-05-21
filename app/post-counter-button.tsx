@@ -65,6 +65,7 @@ export default function PostCounterButton({
             : "border-[#dedede] text-[#777777] hover:border-[#c62917] hover:text-[#c62917]"
         }`}
         onClick={handleClick}
+        onMouseLeave={() => setErrorMessage("")}
         type="button"
       >
         {label} {count}

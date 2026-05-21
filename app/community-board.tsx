@@ -692,6 +692,7 @@ function RecommendButton({
           recommended ? "font-bold text-[#c62917]" : "text-[#777777] hover:text-[#c62917]"
         }`}
         onClick={handleClick}
+        onMouseLeave={() => setErrorMessage("")}
         type="button"
       >
         {label} {count}
